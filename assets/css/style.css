@@ -551,40 +551,53 @@ input:focus, select:focus, textarea:focus {
     .two-col, .three-col { grid-template-columns: 1fr; }
     .stat-grid { grid-template-columns: 1fr 1fr; }
 }
-/* ── Show/hide password toggle ── */
-.password-field {
-    position: relative;
+/* ── Footer ── */
+.app-footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+    padding: 20px 24px;
 }
-.password-field input {
-    padding-right: 44px !important;
+.footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    max-width: 1200px;
+    margin: 0 auto;
 }
-.password-toggle {
-    position: absolute !important;
-    right: 6px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    min-height: 32px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    background: transparent !important;
-    border: none !important;
-    cursor: pointer !important;
-    color: #6B7280 !important;
-    border-radius: 6px !important;
-    padding: 0 !important;
-    z-index: 10 !important;
+.footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
-.password-toggle:hover { color: #111318 !important; background: #F6F7F9 !important; }
-.password-toggle svg {
-    width: 18px !important;
-    height: 18px !important;
-    display: block !important;
-    flex-shrink: 0 !important;
+.footer-logo {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--accent);
 }
-.password-toggle .icon-off { display: none !important; }
-.password-toggle.is-visible .icon-on  { display: none !important; }
-.password-toggle.is-visible .icon-off { display: block !important; }
+.footer-tagline {
+    font-size: 12px;
+    color: var(--muted);
+}
+.footer-links {
+    display: flex;
+    gap: 16px;
+}
+.footer-links a {
+    font-size: 12.5px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color .15s;
+}
+.footer-links a:hover { color: var(--accent); }
+.footer-copy {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+@media (max-width: 768px) {
+    .footer-inner { flex-direction: column; text-align: center; }
+    .footer-links { justify-content: center; }
+}

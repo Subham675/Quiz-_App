@@ -36,14 +36,14 @@ function isAdmin(): bool {
 
 function requireLogin(): void {
     if (!isLoggedIn()) {
-        header('Location: /Quiz_app/public/login.php');
+        header('Location: ' . BASE_PATH . '/public/login.php');
         exit;
     }
 }
 
 function requireAdmin(): void {
     if (!isAdmin()) {
-        header('Location: /Quiz_app/public/dashboard.php');
+        header('Location: ' . BASE_PATH . '/public/dashboard.php');
         exit;
     }
 }
@@ -61,7 +61,7 @@ function logoutUser(): void {
     startSession();
     $_SESSION = [];
     session_destroy();
-    header('Location: /Quiz_app/public/login.php');
+    header('Location: ' . BASE_PATH . '/public/login.php');
     exit;
 }
 

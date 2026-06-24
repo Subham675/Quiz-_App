@@ -5,7 +5,7 @@ require_once __DIR__ . '/../config/mailer.php';
 require_once __DIR__ . '/../includes/rate_limiter.php';
 
 startSession();
-if (isLoggedIn()) { header('Location: /Quiz_app/index.php'); exit; }
+if (isLoggedIn()) { header('Location: ' . BASE_PATH . '/index.php'); exit; }
 
 $error = $success = '';
 
@@ -32,13 +32,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?")
                    ->execute([$token, $expires, $user['id']]);
 
-                $resetLink = "http://localhost/Quiz_app/public/reset-password.php?token={$token}";
+                $resetLink = rtrim($_ENV['APP_URL'] ?? '', '/') . "/public/reset-password.php?token={$token}";
+                $body = "Hi {$user['name']},\n\nClick the link below to reset your password (valid for 1 hour):\n\n{$resetLink}\n\nIf you didn't request this, ignore this email.";
 
-                $mailer = getMailer();
-                $mailer->addAddress($email, $user['name']);
-                $mailer->Subject = 'Reset your QuizApp password';
-                $mailer->Body    = "Hi {$user['name']},\n\nClick the link below to reset your password (valid for 1 hour):\n\n{$resetLink}\n\nIf you didn't request this, ignore this email.";
-                $mailer->send();
+                try {
+                    $mailer = getMailer();
+                    $mailer->addAddress($email, $user['name']);
+                    $mailer->Subject = 'Reset your QuizApp password';
+                    $mailer->Body    = $body;
+                    $mailer->send();
+                } catch (Exception $e) {
+                    error_log('Reset email failed: ' . $e->getMessage());
+                }
             }
 
             // Always show success (don't reveal if email exists)
@@ -54,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forgot Password — QuizApp</title>
-    <link rel="stylesheet" href="/Quiz_app/assets/css/style.css?v=3">
+    <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css?v=3">
 </head>
 <body>
 <div class="auth-wrapper">

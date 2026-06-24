@@ -4,7 +4,7 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/mailer.php';
 
 startSession();
-if (isLoggedIn()) { header('Location: /Quiz_app/index.php'); exit; }
+if (isLoggedIn()) { header('Location: ' . BASE_PATH . '/index.php'); exit; }
 
 $error = $success = '';
 
