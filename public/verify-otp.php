@@ -5,6 +5,12 @@ require_once __DIR__ . '/../includes/rate_limiter.php';
 
 startSession();
 if (isLoggedIn()) { header('Location: ' . BASE_PATH . '/index.php'); exit; }
+
+// Restore from cookie if session was lost (common with ngrok/proxies)
+if (empty($_SESSION['pending_user_id']) && !empty($_COOKIE['pending_uid'])) {
+    $_SESSION['pending_user_id'] = (int)$_COOKIE['pending_uid'];
+}
+
 if (empty($_SESSION['pending_user_id'])) { header('Location: ' . BASE_PATH . '/public/register.php'); exit; }
 
 $error = $success = '';
@@ -25,6 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($result === 'ok') {
             $rl->reset('otp');
             unset($_SESSION['pending_user_id']);
+            setcookie('pending_uid', '', time() - 3600, '/');
             $success = 'Email verified! You can now log in.';
             header('refresh:2;url=' . BASE_PATH . '/public/login.php');
         } elseif ($result === 'expired') {

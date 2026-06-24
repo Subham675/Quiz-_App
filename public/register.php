@@ -47,7 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if (sendOTPEmail($email, $name, $otp)) {
                 $_SESSION['pending_user_id'] = $userId;
-                header('Location: verify-otp.php');
+                // Backup cookie in case session drops over proxy/ngrok
+                setcookie('pending_uid', $userId, time() + 300, '/', '', false, true);
+                header('Location: ' . BASE_PATH . '/public/verify-otp.php');
                 exit;
             } else {
                 $db->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
