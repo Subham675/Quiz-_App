@@ -12,7 +12,7 @@ function startSession(): void {
             'path'     => '/',
             'secure'   => $isHttps,   // auto-enables on HTTPS
             'httponly' => true,
-            'samesite' => 'Strict',
+            'samesite' => 'Lax',
         ]);
 
         // Harden session
