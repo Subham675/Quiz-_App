@@ -5,7 +5,7 @@ require_once __DIR__ . '/../includes/rate_limiter.php';
 
 startSession();
 if (isLoggedIn()) { header('Location: ' . BASE_PATH . '/index.php'); exit; }
-if (empty($_SESSION['pending_user_id'])) { header('Location: register.php'); exit; }
+if (empty($_SESSION['pending_user_id'])) { header('Location: ' . BASE_PATH . '/public/register.php'); exit; }
 
 $error = $success = '';
 $userId = $_SESSION['pending_user_id'];
@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $rl->reset('otp');
             unset($_SESSION['pending_user_id']);
             $success = 'Email verified! You can now log in.';
-            header('refresh:2;url=login.php');
+            header('refresh:2;url=' . BASE_PATH . '/public/login.php');
         } elseif ($result === 'expired') {
             $error = 'OTP has expired. Please register again.';
         } elseif ($result === 'max_attempts') {
