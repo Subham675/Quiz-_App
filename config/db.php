@@ -4,6 +4,13 @@ require_once __DIR__ . '/../vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
 $dotenv->load();
 
+// Base path the app is served from, derived from APP_URL in .env.
+// Defaults to '' (root) if APP_URL has no path component, e.g. https://example.com
+if (!defined('BASE_PATH')) {
+    $appUrlPath = parse_url($_ENV['APP_URL'] ?? '', PHP_URL_PATH) ?? '';
+    define('BASE_PATH', rtrim($appUrlPath, '/'));
+}
+
 function getDB(): PDO {
     static $pdo = null;
     if ($pdo === null) {
