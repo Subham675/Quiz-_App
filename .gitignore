@@ -1,0 +1,26 @@
+# Dependencies
+vendor/
+
+# Environment — NEVER commit this
+.env
+.env.*
+!.env.example
+
+# Generated files
+uploads/certificates/*.pdf
+uploads/
+
+# Logs
+*.log
+error_log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Test files
+test_db.php
