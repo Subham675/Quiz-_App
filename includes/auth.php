@@ -91,6 +91,71 @@ function isFakeEmail(string $email): bool {
     return in_array($domain, $disposable, true);
 }
 
+/**
+ * Optional extra layer on top of isFakeEmail(): a real third-party check of
+ * whether a SPECIFIC mailbox (not just the domain) is deliverable, via
+ * AbstractAPI's Email Reputation product (what used to be a separate
+ * "Email Validation" product -- Abstract merged it into Email Reputation,
+ * same free tier, different endpoint/response shape).
+ * https://www.abstractapi.com/api/email-verification-validation-api
+ *
+ * This is the only way to catch something like "asdkjh123@gmail.com" --
+ * a made-up local part at a perfectly real domain -- which no DNS check
+ * can ever distinguish from a real address.
+ *
+ * Fails OPEN (returns true / "don't block") if ABSTRACT_EMAIL_API_KEY isn't
+ * set, or the API call errors/times out/returns something unexpected --
+ * a third-party outage should never be the reason someone can't register,
+ * and isFakeEmail()'s DNS + disposable-list check still applies regardless.
+ *
+ * Only blocks on an explicit "undeliverable" verdict or a confirmed
+ * disposable flag. "unknown" is left alone on purpose -- that covers normal
+ * catch-all business domains, and hard-blocking on an inconclusive signal
+ * would reject real users more often than fake ones.
+ */
+function isDeliverableEmail(string $email): bool
+{
+    $apiKey = $_ENV['ABSTRACT_EMAIL_API_KEY'] ?? '';
+    if (empty($apiKey) || $apiKey === 'paste_your_key_here') {
+        return true; // not configured -- skip this layer
+    }
+
+    $url = 'https://emailreputation.abstractapi.com/v1/?' . http_build_query([
+        'api_key' => $apiKey,
+        'email'   => $email,
+    ]);
+
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT        => 4,
+        CURLOPT_CONNECTTIMEOUT => 3,
+    ]);
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErr  = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlErr || $httpCode !== 200) {
+        error_log("Email reputation API unavailable (HTTP {$httpCode}): {$curlErr}");
+        return true; // fail open
+    }
+
+    $data = json_decode($response, true);
+    if (!is_array($data)) {
+        return true; // fail open on a malformed/unexpected response
+    }
+
+    if (($data['email_deliverability']['status'] ?? '') === 'undeliverable') {
+        return false;
+    }
+    if (($data['email_quality']['is_disposable'] ?? false) === true) {
+        return false;
+    }
+
+    return true;
+}
+
 // ── OTP ──────────────────────────────────────────────
 function generateOTP(): int {
     return random_int(100000, 999999);
