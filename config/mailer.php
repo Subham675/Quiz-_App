@@ -7,12 +7,14 @@ require_once __DIR__ . '/../vendor/autoload.php';
 function getMailer(): PHPMailer {
     $mail = new PHPMailer(true);
     $mail->isSMTP();
-    $mail->Host       = $_ENV['MAIL_HOST'];
-    $mail->SMTPAuth   = true;
-    $mail->Username   = $_ENV['MAIL_USER'];
-    $mail->Password   = $_ENV['MAIL_PASS'];
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-    $mail->Port       = (int) $_ENV['MAIL_PORT'];
+    $mail->Host        = $_ENV['MAIL_HOST'];
+    $mail->SMTPAuth    = true;
+    $mail->Username    = $_ENV['MAIL_USER'];
+    $mail->Password    = $_ENV['MAIL_PASS'];
+    $mail->SMTPSecure  = PHPMailer::ENCRYPTION_STARTTLS;
+    $mail->Port        = (int) $_ENV['MAIL_PORT'];
+    $mail->Timeout     = 10;        // stop waiting after 10s — prevents server crash
+    $mail->SMTPKeepAlive = false;
     $mail->setFrom($_ENV['MAIL_FROM'], $_ENV['MAIL_FROM_NAME']);
     $mail->isHTML(true);
     return $mail;
@@ -20,6 +22,7 @@ function getMailer(): PHPMailer {
 
 function sendOTPEmail(string $toEmail, string $toName, int $otp): bool {
     try {
+        set_time_limit(20);
         $mail = getMailer();
         $mail->addAddress($toEmail, $toName);
         $mail->Subject = 'Your QuizApp OTP Code';

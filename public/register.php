@@ -2,60 +2,42 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/mailer.php';
-require_once __DIR__ . '/../includes/rate_limiter.php';
+require_once __DIR__ . '/../includes/email_validator.php';
 
 startSession();
-if (isLoggedIn()) { header('Location: ' . BASE_PATH . '/index.php'); exit; }
+if (isLoggedIn()) { header('Location: /Quiz_app/index.php'); exit; }
 
 $error = $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verifyCsrf();
-
-    $rl = new RateLimiter(getDB());
-    if ($rl->isBlocked('register')) {
-        $error = 'Too many registration attempts from this connection. Please wait ' . ceil($rl->blockedSecondsRemaining('register') / 60) . ' minute(s).';
-    } else {
-    $name     = ucwords(strtolower(trim($_POST['name'] ?? '')));
+    $name     = trim($_POST['name'] ?? '');
     $email    = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm  = $_POST['confirm'] ?? '';
 
     if (!$name || !$email || !$password) {
         $error = 'All fields are required.';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Invalid email address.';
-    } elseif (isFakeEmail($email)) {
-        $error = "We couldn't deliver mail to that address. Please check it for typos or use a different email.";
-    } elseif (!isDeliverableEmail($email)) {
-        $error = "That email address doesn't appear to be deliverable. Please double-check it for typos.";
+    } elseif (strlen($name) < 2) {
+        $error = 'Please enter your full name.';
     } elseif (strlen($password) < 8) {
         $error = 'Password must be at least 8 characters.';
     } elseif ($password !== $confirm) {
         $error = 'Passwords do not match.';
     } else {
-        // Count this as an attempt now, regardless of outcome below -- this is
-        // what actually limits OTP-spam against someone else's real address,
-        // since we can't tell at submit time whether the mailbox is real or not.
-        $rl->recordFailure('register', 5, 15, 30);
-
-        $db  = getDB();
-        $chk = $db->prepare("SELECT id, is_verified, created_at FROM users WHERE email = ?");
-        $chk->execute([$email]);
-        $existing = $chk->fetch();
-
-        // A signup that was never verified shouldn't permanently squat the email --
-        // otherwise a typo'd or fake address (or someone else's real address typed
-        // by mistake) blocks that person from ever registering it for real later.
-        if ($existing && !$existing['is_verified'] && strtotime($existing['created_at']) < strtotime('-15 minutes')) {
-            $db->prepare("DELETE FROM users WHERE id = ?")->execute([$existing['id']]);
-            $existing = null;
+        // 5-layer email check BEFORE creating any DB record
+        $check = validateEmail($email);
+        if (!$check['valid']) {
+            $error = $check['error'];
         }
+    }
 
-        if ($existing) {
-            $error = $existing['is_verified']
-                ? 'This email is already registered.'
-                : 'A verification email was already sent to this address recently. Check your inbox (and spam folder), or try again in a few minutes.';
+    if (!$error) {
+        $db  = getDB();
+        $chk = $db->prepare("SELECT id FROM users WHERE email = ?");
+        $chk->execute([$email]);
+        if ($chk->fetch()) {
+            $error = 'This email is already registered.';
         } else {
             $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
             $otp  = generateOTP();
@@ -74,9 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if (sendOTPEmail($email, $name, $otp)) {
                 $_SESSION['pending_user_id'] = $userId;
-                // Backup cookie in case session drops over proxy/ngrok
-                setcookie('pending_uid', $userId, time() + 300, '/', '', false, true);
-                header('Location: ' . BASE_PATH . '/public/verify-otp.php');
+                header('Location: verify-otp.php');
                 exit;
             } else {
                 $db->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
@@ -84,7 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         render:
-    }
     }
 }
 ?>
