@@ -225,7 +225,7 @@ body {
             </form>
 
             <div class="form-footer">
-                <p>Don't have an account? <a href="register.php">Sign Up</a></p>
+                <p>Don't have an account? <a href="register.php">Register Now</a></p>
             </div>
         </div>
     </div>
