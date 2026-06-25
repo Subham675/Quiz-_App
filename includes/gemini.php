@@ -31,41 +31,57 @@ function callGemini(string $prompt, bool $jsonMode = true, int $maxTokens = 2048
         $body['generationConfig']['responseMimeType'] = 'application/json';
     }
 
-    $ch = curl_init(GEMINI_ENDPOINT . '?key=' . urlencode($apiKey));
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-        CURLOPT_POSTFIELDS     => json_encode($body),
-        CURLOPT_TIMEOUT        => 25,
-        CURLOPT_CONNECTTIMEOUT => 5,
-        CURLOPT_TCP_NODELAY    => true,
-        CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
-        CURLOPT_ENCODING       => '', // accept gzip/deflate — smaller payload, faster transfer
-    ]);
+    // Transient errors (model overloaded / rate-limited / momentary server fault)
+    // are common on the free tier and usually clear up within a second or two,
+    // so retry a couple of times before giving up. Anything else (bad request,
+    // invalid key, model not found) won't be fixed by retrying.
+    $maxAttempts   = 3;
+    $retryableCodes = [429, 500, 503];
+    $lastError     = null;
 
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlErr  = curl_error($ch);
-    curl_close($ch);
+    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+        $ch = curl_init(GEMINI_ENDPOINT . '?key=' . urlencode($apiKey));
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST           => true,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+            CURLOPT_POSTFIELDS     => json_encode($body),
+            CURLOPT_TIMEOUT        => 25,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TCP_NODELAY    => true,
+            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
+            CURLOPT_ENCODING       => '', // accept gzip/deflate — smaller payload, faster transfer
+        ]);
 
-    if ($curlErr) {
-        throw new Exception('Network error calling Gemini: ' . $curlErr);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErr) {
+            $lastError = new Exception('Network error calling Gemini: ' . $curlErr);
+        } elseif ($httpCode !== 200) {
+            $data = json_decode($response, true);
+            $msg  = $data['error']['message'] ?? 'Unknown error';
+            $lastError = new Exception("Gemini API error ({$httpCode}): {$msg}");
+            if (!in_array($httpCode, $retryableCodes, true)) {
+                throw $lastError; // not worth retrying, fail fast
+            }
+        } else {
+            $data = json_decode($response, true);
+            $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
+            if ($text === null) {
+                throw new Exception('Gemini returned no content. It may have blocked the response.');
+            }
+            return $text;
+        }
+
+        if ($attempt < $maxAttempts) {
+            usleep(500000 * $attempt); // 0.5s, then 1s backoff before retrying
+        }
     }
 
-    $data = json_decode($response, true);
-
-    if ($httpCode !== 200) {
-        $msg = $data['error']['message'] ?? 'Unknown error';
-        throw new Exception("Gemini API error ({$httpCode}): {$msg}");
-    }
-
-    $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
-    if ($text === null) {
-        throw new Exception('Gemini returned no content. It may have blocked the response.');
-    }
-
-    return $text;
+    throw $lastError;
 }
 
 /**

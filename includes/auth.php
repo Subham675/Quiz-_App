@@ -12,7 +12,7 @@ function startSession(): void {
             'path'     => '/',
             'secure'   => $isHttps,   // auto-enables on HTTPS
             'httponly' => true,
-            'samesite' => 'Lax',
+            'samesite' => 'Strict',
         ]);
 
         // Harden session
@@ -65,6 +65,32 @@ function logoutUser(): void {
     exit;
 }
 
+// ── Email validation ─────────────────────────────────
+// Catches typo'd/non-existent domains and known disposable-email
+// providers before we waste an OTP send on them. This can NOT confirm
+// a specific mailbox (e.g. "abc@gmail.com") really belongs to someone --
+// only Gmail itself knows that. Real proof of ownership only ever
+// happens when the user types in the OTP we emailed them.
+function isFakeEmail(string $email): bool {
+    $parts = explode('@', $email);
+    if (count($parts) !== 2) return true;
+    $domain = strtolower(trim($parts[1]));
+
+    // Domain has no mail server (and no fallback A/AAAA record) configured at all
+    if (!checkdnsrr($domain, 'MX') && !checkdnsrr($domain, 'A') && !checkdnsrr($domain, 'AAAA')) {
+        return true;
+    }
+
+    // Known disposable/temp-mail providers
+    static $disposable = [
+        'mailinator.com', 'guerrillamail.com', '10minutemail.com', 'tempmail.com',
+        'temp-mail.org', 'throwawaymail.com', 'yopmail.com', 'trashmail.com',
+        'getnada.com', 'fakeinbox.com', 'sharklasers.com', 'maildrop.cc',
+        'dispostable.com', 'mintemail.com', 'mailnesia.com',
+    ];
+    return in_array($domain, $disposable, true);
+}
+
 // ── OTP ──────────────────────────────────────────────
 function generateOTP(): int {
     return random_int(100000, 999999);
@@ -74,7 +100,7 @@ function saveOTP(int $userId, int $otp): void {
     $db = getDB();
     $stmt = $db->prepare("
         UPDATE users
-        SET otp_code = ?, otp_expires_at = DATE_ADD(NOW(), INTERVAL 60 SECOND),
+        SET otp_code = ?, otp_expires_at = DATE_ADD(NOW(), INTERVAL 10 MINUTE),
             otp_attempts = 0, last_otp_request = NOW()
         WHERE id = ?
     ");
