@@ -2,7 +2,6 @@
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/mailer.php';
-require_once __DIR__ . '/../includes/email_validator.php';
 
 startSession();
 if (isLoggedIn()) { header('Location: /Quiz_app/index.php'); exit; }
@@ -18,21 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$name || !$email || !$password) {
         $error = 'All fields are required.';
-    } elseif (strlen($name) < 2) {
-        $error = 'Please enter your full name.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Invalid email address.';
     } elseif (strlen($password) < 8) {
         $error = 'Password must be at least 8 characters.';
     } elseif ($password !== $confirm) {
         $error = 'Passwords do not match.';
     } else {
-        // 5-layer email check BEFORE creating any DB record
-        $check = validateEmail($email);
-        if (!$check['valid']) {
-            $error = $check['error'];
-        }
-    }
-
-    if (!$error) {
         $db  = getDB();
         $chk = $db->prepare("SELECT id FROM users WHERE email = ?");
         $chk->execute([$email]);
