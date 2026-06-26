@@ -34,9 +34,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $otp  = generateOTP();
             try {
                 $db->beginTransaction();
-                $stmt = $db->prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)");
-                $stmt->execute([$name, $email, $hash]);
-                $userId = $db->lastInsertId();
+
+                // Find lowest available ID (fills gap left by deleted users)
+                // e.g. users 1,3,4 exist → next gets ID 2 (not 5)
+                $nextId = (int)$db->query("
+                    SELECT MIN(seq) FROM (
+                        SELECT 1 AS seq
+                        UNION ALL
+                        SELECT id + 1 FROM users
+                    ) AS candidates
+                    WHERE seq NOT IN (SELECT id FROM users)
+                ")->fetchColumn();
+
+                $stmt = $db->prepare("INSERT INTO users (id, name, email, password) VALUES (?, ?, ?, ?)");
+                $stmt->execute([$nextId, $name, $email, $hash]);
+                $userId = $nextId;
+
                 saveOTP($userId, $otp);
                 $db->commit();
             } catch (Exception $e) {
