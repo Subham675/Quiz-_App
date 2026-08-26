@@ -4,6 +4,11 @@ use PHPMailer\PHPMailer\Exception;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
+if (empty($_ENV['SMTP_USER']) && file_exists(__DIR__ . '/../.env')) {
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
+    $dotenv->safeLoad();
+}
+
 function getMailer(): PHPMailer {
     $mail = new PHPMailer(true);
     $mail->isSMTP();
