@@ -36,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
 
     $questionText = trim($_POST['question_text'] ?? '');
     $marks        = max(1, (int)($_POST['marks'] ?? 1));
+    $difficulty   = in_array($_POST['difficulty'] ?? '', ['easy','medium','hard']) ? $_POST['difficulty'] : 'medium';
+    $tag          = trim($_POST['tag'] ?? '');
     $options      = $_POST['options'] ?? [];      // array of 4 strings
     $correctIndex = (int)($_POST['correct_index'] ?? -1);
 
@@ -55,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
         $nextOrderStmt->execute([$quizId]);
         $nextOrder = $nextOrderStmt->fetchColumn();
 
-        $qStmt = $db->prepare("INSERT INTO questions (quiz_id, question_text, marks, order_index) VALUES (?, ?, ?, ?)");
-        $qStmt->execute([$quizId, $questionText, $marks, $nextOrder]);
+        $qStmt = $db->prepare("INSERT INTO questions (quiz_id, question_text, marks, difficulty, tag, order_index) VALUES (?, ?, ?, ?, ?, ?)");
+        $qStmt->execute([$quizId, $questionText, $marks, $difficulty, $tag ?: null, $nextOrder]);
         $questionId = $db->lastInsertId();
 
         $oStmt = $db->prepare("INSERT INTO options (question_id, option_text, is_correct) VALUES (?, ?, ?)");
@@ -81,6 +83,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_question'])) {
     $db->prepare("UPDATE quizzes SET total_marks = (SELECT COALESCE(SUM(marks),0) FROM questions WHERE quiz_id = ?) WHERE id = ?")
        ->execute([$quizId, $quizId]);
     $success = 'Question deleted.';
+}
+
+// ── CSV Sample Download ────────────────────────────────
+if (isset($_GET['sample_csv'])) {
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="sample_questions.csv"');
+    echo "question_text,marks,difficulty,tag,option_a,option_b,option_c,option_d,correct_index\n";
+    echo "\"What is the capital of France?\",1,easy,geography,Paris,London,Berlin,Madrid,0\n";
+    echo "\"What is 2+2?\",1,easy,math,3,4,5,6,1\n";
+    exit;
+}
+
+// ── CSV Bulk Import ────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['csv_import'])) {
+    verifyCsrf();
+    $file = $_FILES['csv_file'] ?? null;
+    if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
+        $error = 'Please upload a valid CSV file.';
+    } else {
+        $handle = fopen($file['tmp_name'], 'r');
+        $header = fgetcsv($handle); // skip header row
+        $imported = 0;
+        $importErrors = 0;
+
+        $db->beginTransaction();
+        $nextOrderStmt = $db->prepare("SELECT COALESCE(MAX(order_index), 0) FROM questions WHERE quiz_id = ?");
+        $nextOrderStmt->execute([$quizId]);
+        $nextOrder = (int)$nextOrderStmt->fetchColumn();
+
+        $qStmt = $db->prepare("INSERT INTO questions (quiz_id, question_text, marks, difficulty, tag, order_index) VALUES (?, ?, ?, ?, ?, ?)");
+        $oStmt = $db->prepare("INSERT INTO options (question_id, option_text, is_correct) VALUES (?, ?, ?)");
+
+        while (($row = fgetcsv($handle)) !== false) {
+            if (count($row) < 9) { $importErrors++; continue; }
+            [$questionText, $marks, $difficulty, $tag, $optA, $optB, $optC, $optD, $correctIdx] = $row;
+            $questionText = trim($questionText);
+            if (empty($questionText)) { $importErrors++; continue; }
+
+            $difficulty = in_array(trim($difficulty), ['easy','medium','hard']) ? trim($difficulty) : 'medium';
+            $marks = max(1, (int)$marks);
+            $correctIdx = (int)$correctIdx; // 0=A,1=B,2=C,3=D
+            $opts = array_map('trim', [$optA, $optB, $optC, $optD]);
+            $filled = array_filter($opts, fn($o) => $o !== '');
+            if (count($filled) < 2) { $importErrors++; continue; }
+            if ($correctIdx < 0 || $correctIdx > 3 || empty($opts[$correctIdx])) { $importErrors++; continue; }
+
+            $nextOrder++;
+            $qStmt->execute([$quizId, $questionText, $marks, $difficulty, trim($tag) ?: null, $nextOrder]);
+            $questionId = $db->lastInsertId();
+
+            foreach ($opts as $i => $optText) {
+                if ($optText === '') continue;
+                $oStmt->execute([$questionId, $optText, $i === $correctIdx ? 1 : 0]);
+            }
+            $imported++;
+        }
+        fclose($handle);
+
+        $db->prepare("UPDATE quizzes SET total_marks = (SELECT COALESCE(SUM(marks),0) FROM questions WHERE quiz_id = ?) WHERE id = ?")
+           ->execute([$quizId, $quizId]);
+        $db->commit();
+
+        $success = "{$imported} question(s) imported successfully." . ($importErrors > 0 ? " {$importErrors} row(s) skipped (invalid format)." : '');
+    }
 }
 
 $questions = $db->prepare("SELECT * FROM questions WHERE quiz_id = ? ORDER BY order_index ASC, id ASC");
@@ -112,9 +178,24 @@ require_once __DIR__ . '/../includes/header.php';
                 <textarea name="question_text" rows="2" required></textarea>
             </div>
 
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div class="form-group">
+                    <label>Marks</label>
+                    <input type="number" name="marks" min="1" value="1">
+                </div>
+                <div class="form-group">
+                    <label>Difficulty</label>
+                    <select name="difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="form-group">
-                <label>Marks</label>
-                <input type="number" name="marks" min="1" value="1" style="max-width:100px">
+                <label>Tag <span style="color:var(--muted);font-size:12px">(optional, e.g. topic/chapter)</span></label>
+                <input type="text" name="tag" placeholder="e.g. Algebra, Chapter 3">
             </div>
 
             <div class="form-group">
@@ -130,6 +211,24 @@ require_once __DIR__ . '/../includes/header.php';
 
             <button type="submit" name="save_question" class="btn btn-primary" style="width:100%;justify-content:center">
                 Add question
+            </button>
+        </form>
+
+        <hr style="margin:20px 0;border-color:var(--border)">
+        <div class="card-title" style="font-size:13.5px">📥 Bulk Import via CSV</div>
+        <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px">
+            Upload a CSV with columns: <code>question_text, marks, difficulty, tag, option_a, option_b, option_c, option_d, correct_index</code><br>
+            correct_index: 0=A, 1=B, 2=C, 3=D. <a href="?quiz_id=<?= $quizId ?>&sample_csv=1" style="color:var(--accent)">Download sample CSV</a>
+        </p>
+        <form method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
+            <div class="form-group">
+                <label>CSV File</label>
+                <input type="file" name="csv_file" accept=".csv" required>
+            </div>
+            <button type="submit" name="csv_import" class="btn btn-outline" style="width:100%;justify-content:center">
+                Import from CSV
             </button>
         </form>
     </div>

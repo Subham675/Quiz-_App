@@ -9,7 +9,7 @@ $userId    = $_SESSION['user_id'];
 $attemptId = (int)($_GET['attempt'] ?? 0);
 
 $stmt = $db->prepare("
-    SELECT a.*, q.title AS quiz_title, q.id AS quiz_id
+    SELECT a.*, q.title AS quiz_title, q.id AS quiz_id, q.negative_marking
     FROM attempts a
     JOIN quizzes q ON q.id = a.quiz_id
     WHERE a.id = ? AND a.user_id = ?
@@ -22,9 +22,9 @@ if (!$attempt) {
     exit;
 }
 
-$pct = $attempt['total_marks'] > 0
-    ? round($attempt['score'] * 100 / $attempt['total_marks'])
-    : 0;
+$pct    = $attempt['total_marks'] > 0
+        ? round($attempt['score'] * 100 / $attempt['total_marks'])
+        : 0;
 $passed = $pct >= 60;
 
 $certificate = null;
@@ -33,9 +33,10 @@ if ($passed) {
     $certificate = generateCertificateIfEligible($attemptId);
 }
 
+// Fetch answer breakdown including explanation
 $detailsStmt = $db->prepare("
     SELECT q.question_text, q.marks,
-           aa.selected_option_id, aa.is_correct,
+           aa.selected_option_id, aa.is_correct, aa.explanation,
            o_sel.option_text AS selected_text,
            o_correct.option_text AS correct_text
     FROM attempt_answers aa
@@ -48,6 +49,13 @@ $detailsStmt = $db->prepare("
 $detailsStmt->execute([$attemptId]);
 $details = $detailsStmt->fetchAll();
 
+// Negative marking breakdown
+$negativeMarking = (float)($attempt['negative_marking'] ?? 0);
+$correctCount    = array_sum(array_column($details, 'is_correct'));
+$wrongCount      = count(array_filter($details, fn($d) => $d['selected_option_id'] && !$d['is_correct']));
+$skippedCount    = count(array_filter($details, fn($d) => !$d['selected_option_id']));
+$totalDeductions = $negativeMarking > 0 ? $wrongCount * $negativeMarking : 0;
+
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
@@ -55,28 +63,56 @@ require_once __DIR__ . '/../includes/header.php';
     <?php if (isset($_GET['already'])): ?>
         <div class="alert alert-warning">You've already completed this quiz. Each quiz can only be attempted once — here's your result from your first attempt.</div>
     <?php endif; ?>
+
     <div class="card" style="text-align:center;padding:36px">
         <div class="page-subtitle"><?= htmlspecialchars($attempt['quiz_title']) ?></div>
         <div class="result-score <?= $passed ? 'result-passed' : 'result-failed' ?>"><?= $pct ?>%</div>
         <span class="badge <?= $passed ? 'badge-success' : 'badge-danger' ?>">
-            <?= $passed ? 'Passed' : 'Not passed' ?>
+            <?= $passed ? '🎉 Passed' : '❌ Not Passed' ?>
         </span>
+
         <p style="margin-top:14px;color:var(--muted);font-size:13.5px">
             Score: <?= $attempt['score'] ?> / <?= $attempt['total_marks'] ?> marks
             · Time taken: <?= gmdate('i:s', $attempt['time_taken_seconds']) ?>
         </p>
-        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px">
+
+        <!-- Score breakdown -->
+        <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:14px">
+            <div style="background:var(--success-bg,rgba(34,197,94,.1));border-radius:8px;padding:8px 18px;font-size:13px">
+                ✅ Correct: <strong><?= $correctCount ?></strong>
+            </div>
+            <div style="background:var(--danger-bg);border-radius:8px;padding:8px 18px;font-size:13px">
+                ❌ Wrong: <strong><?= $wrongCount ?></strong>
+            </div>
+            <div style="background:var(--bg);border-radius:8px;padding:8px 18px;font-size:13px;border:1px solid var(--border)">
+                ⏭️ Skipped: <strong><?= $skippedCount ?></strong>
+            </div>
+            <?php if ($negativeMarking > 0): ?>
+            <div style="background:var(--danger-bg);border-radius:8px;padding:8px 18px;font-size:13px">
+                ➖ Negative deduction: <strong>−<?= number_format($totalDeductions, 2) ?></strong>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Tab switch warning -->
+        <?php if ((int)($attempt['tab_switch_count'] ?? 0) > 0): ?>
+        <div style="margin-top:14px;padding:10px 16px;background:var(--warning-bg,rgba(234,179,8,.1));border:1px solid var(--warning,#ca8a04);border-radius:8px;font-size:13px;color:var(--warning,#ca8a04)">
+            ⚠️ <strong><?= (int)$attempt['tab_switch_count'] ?> tab switch<?= $attempt['tab_switch_count'] > 1 ? 'es' : '' ?> detected</strong> during this attempt — this was logged.
+        </div>
+        <?php endif; ?>
+
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px">
             <a href="quiz-list.php" class="btn btn-outline btn-sm">Browse more quizzes</a>
             <a href="download-result.php?attempt=<?= $attemptId ?>" class="btn btn-outline btn-sm">Download result (PDF)</a>
             <?php if ($certificate): ?>
                 <a href="/Quiz_app/<?= htmlspecialchars($certificate['cert_path']) ?>" target="_blank" class="btn btn-sm" style="background:var(--success);color:#fff;border-color:var(--success)">
-                    Download certificate
+                    🏆 Download Certificate
                 </a>
             <?php endif; ?>
         </div>
     </div>
 
-    <div class="card-title" style="margin:24px 0 12px">Answer breakdown</div>
+    <div class="card-title" style="margin:24px 0 12px">Answer Breakdown</div>
 
     <?php foreach ($details as $i => $d): ?>
     <div class="question-card">
@@ -91,6 +127,15 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="option-label correct">
             Correct answer: <?= htmlspecialchars($d['correct_text'] ?? '—') ?>
         </div>
+
+        <?php if (!empty($d['explanation'])): ?>
+        <div style="margin-top:10px;padding:12px 14px;background:var(--accent-bg,rgba(99,102,241,.07));border-left:3px solid var(--accent);border-radius:0 6px 6px 0;font-size:13px;line-height:1.6;color:var(--text)">
+            <strong style="font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px">💡 AI Explanation</strong><br>
+            <?= htmlspecialchars($d['explanation']) ?>
+        </div>
+        <?php elseif (!$d['selected_option_id']): ?>
+        <div style="margin-top:8px;font-size:12.5px;color:var(--muted)">You skipped this question.</div>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
     <?php endforeach; ?>

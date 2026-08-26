@@ -21,6 +21,10 @@ CREATE TABLE users (
     last_otp_request DATETIME DEFAULT NULL,
     is_verified     TINYINT(1) DEFAULT 0,
     is_banned       TINYINT(1) DEFAULT 0,
+    is_deleted      TINYINT(1) DEFAULT 0,
+    current_streak  INT DEFAULT 0,
+    longest_streak  INT DEFAULT 0,
+    last_active_date DATE DEFAULT NULL,
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -45,6 +49,9 @@ CREATE TABLE quizzes (
     description         TEXT DEFAULT NULL,
     time_limit_seconds  INT DEFAULT 600,               -- default 10 mins
     total_marks         INT DEFAULT 0,
+    negative_marking    DECIMAL(4,2) DEFAULT 0.00,     -- deduction per incorrect answer
+    starts_at           DATETIME DEFAULT NULL,         -- scheduling window start
+    ends_at             DATETIME DEFAULT NULL,         -- scheduling window end
     is_ai_generated     TINYINT(1) DEFAULT 0,
     is_active           TINYINT(1) DEFAULT 1,
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -59,6 +66,8 @@ CREATE TABLE questions (
     quiz_id         INT NOT NULL,
     question_text   TEXT NOT NULL,
     marks           INT DEFAULT 1,
+    difficulty      ENUM('easy', 'medium', 'hard') DEFAULT 'medium',
+    tag             VARCHAR(100) DEFAULT NULL,
     order_index     INT DEFAULT 0,                     -- for randomization control
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
@@ -82,9 +91,10 @@ CREATE TABLE attempts (
     id                  INT AUTO_INCREMENT PRIMARY KEY,
     user_id             INT NOT NULL,
     quiz_id             INT NOT NULL,
-    score               INT DEFAULT 0,
+    score               DECIMAL(6,2) DEFAULT 0.00,
     total_marks         INT DEFAULT 0,
     time_taken_seconds  INT DEFAULT 0,
+    tab_switch_count    INT DEFAULT 0,                 -- anti-cheat tracking
     is_completed        TINYINT(1) DEFAULT 0,
     email_sent          TINYINT(1) DEFAULT 0,
     started_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -102,6 +112,7 @@ CREATE TABLE attempt_answers (
     question_id         INT NOT NULL,
     selected_option_id  INT DEFAULT NULL,              -- NULL = skipped
     is_correct          TINYINT(1) DEFAULT 0,
+    explanation         TEXT DEFAULT NULL,             -- AI explanation for learning
     FOREIGN KEY (attempt_id)         REFERENCES attempts(id) ON DELETE CASCADE,
     FOREIGN KEY (question_id)        REFERENCES questions(id) ON DELETE CASCADE,
     FOREIGN KEY (selected_option_id) REFERENCES options(id) ON DELETE SET NULL

@@ -20,23 +20,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_quiz'])) {
     $description = trim($_POST['description'] ?? '');
     $timeLimit   = max(60, (int)($_POST['time_limit_minutes'] ?? 10) * 60);
     $isActive    = isset($_POST['is_active']) ? 1 : 0;
+    $negativeMarking = max(0, (float)($_POST['negative_marking'] ?? 0));
+    $startsAt    = !empty($_POST['starts_at']) ? $_POST['starts_at'] : null;
+    $endsAt      = !empty($_POST['ends_at'])   ? $_POST['ends_at']   : null;
 
     if ($title === '' || $categoryId <= 0) {
         $error = 'Title and category are required.';
     } else {
         if ($id > 0) {
             $stmt = $db->prepare("
-                UPDATE quizzes SET title=?, category_id=?, description=?, time_limit_seconds=?, is_active=?
+                UPDATE quizzes SET title=?, category_id=?, description=?, time_limit_seconds=?, is_active=?,
+                    negative_marking=?, starts_at=?, ends_at=?
                 WHERE id=?
             ");
-            $stmt->execute([$title, $categoryId, $description, $timeLimit, $isActive, $id]);
+            $stmt->execute([$title, $categoryId, $description, $timeLimit, $isActive, $negativeMarking, $startsAt, $endsAt, $id]);
             $success = 'Quiz updated.';
         } else {
             $stmt = $db->prepare("
-                INSERT INTO quizzes (category_id, title, description, time_limit_seconds, is_active)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO quizzes (category_id, title, description, time_limit_seconds, is_active, negative_marking, starts_at, ends_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$categoryId, $title, $description, $timeLimit, $isActive]);
+            $stmt->execute([$categoryId, $title, $description, $timeLimit, $isActive, $negativeMarking, $startsAt, $endsAt]);
             $newQuizId = $db->lastInsertId();
             $success = 'Quiz created. Now add questions to it.';
 
@@ -98,16 +102,11 @@ require_once __DIR__ . '/../includes/header.php';
                 <input type="text" name="title" required value="<?= htmlspecialchars($editQuiz['title'] ?? '') ?>">
             </div>
 
-            <div class="form-group">
-                <label>Category</label>
-                <select name="category_id" required>
-                    <option value="">Select category</option>
-                    <?php foreach ($categories as $c): ?>
-                    <option value="<?= $c['id'] ?>" <?= ($editQuiz['category_id'] ?? 0) == $c['id'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($c['name']) ?>
-                    </option>
-                    <?php endforeach; ?>
-                </select>
+            <div class="form-group" style="position:relative">
+                <label>Category <span style="font-size:12px;color:var(--muted)">(Search or select from list)</span></label>
+                <input type="text" id="categoryTypeahead" placeholder="Type to search category (e.g. Politics, Science)..." autocomplete="off" value="<?= htmlspecialchars($editQuiz ? ($db->query("SELECT name FROM categories WHERE id = " . (int)$editQuiz['category_id'])->fetchColumn() ?: '') : '') ?>">
+                <input type="hidden" name="category_id" id="selectedCategoryId" required value="<?= $editQuiz['category_id'] ?? '' ?>">
+                <div id="catTypeaheadList" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:99;background:var(--surface,#ffffff);border:1px solid var(--border,#E4E6EA);border-radius:var(--radius-sm,6px);max-height:200px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,.08);margin-top:4px"></div>
             </div>
 
             <div class="form-group">
@@ -118,6 +117,22 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="form-group">
                 <label>Time limit (minutes)</label>
                 <input type="number" name="time_limit_minutes" min="1" value="<?= isset($editQuiz['time_limit_seconds']) ? round($editQuiz['time_limit_seconds'] / 60) : 10 ?>">
+            </div>
+
+            <div class="form-group">
+                <label>Negative Marking <span style="color:var(--muted);font-size:12px">(marks deducted per wrong answer, 0 = disabled)</span></label>
+                <input type="number" name="negative_marking" min="0" max="5" step="0.25" value="<?= number_format((float)($editQuiz['negative_marking'] ?? 0), 2) ?>" style="max-width:140px">
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+                <div class="form-group">
+                    <label>Opens at <span style="color:var(--muted);font-size:12px">(optional)</span></label>
+                    <input type="datetime-local" name="starts_at" value="<?= !empty($editQuiz['starts_at']) ? date('Y-m-d\TH:i', strtotime($editQuiz['starts_at'])) : '' ?>">
+                </div>
+                <div class="form-group">
+                    <label>Closes at <span style="color:var(--muted);font-size:12px">(optional)</span></label>
+                    <input type="datetime-local" name="ends_at" value="<?= !empty($editQuiz['ends_at']) ? date('Y-m-d\TH:i', strtotime($editQuiz['ends_at'])) : '' ?>">
+                </div>
             </div>
 
             <div class="form-group">
@@ -142,13 +157,25 @@ require_once __DIR__ . '/../includes/header.php';
             <p style="color:var(--muted);font-size:13.5px">No quizzes yet. Create one on the left.</p>
         <?php else: ?>
         <div class="table-wrap"><table class="table">
-            <thead><tr><th>Title</th><th>Category</th><th>Questions</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Title</th><th>Category</th><th>Questions</th><th>Neg. Mark</th><th>Schedule</th><th>Status</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($quizzes as $q): ?>
                 <tr>
                     <td><?= htmlspecialchars($q['title']) ?></td>
                     <td style="color:var(--muted)"><?= htmlspecialchars($q['category']) ?></td>
                     <td><?= $q['q_count'] ?></td>
+                    <td><?= (float)($q['negative_marking'] ?? 0) > 0 ? '<span style="color:var(--danger)">−' . number_format($q['negative_marking'], 2) . '</span>' : '<span style="color:var(--muted)">None</span>' ?></td>
+                    <td style="font-size:12px;color:var(--muted)">
+                        <?php
+                            $now = new DateTime();
+                            $sa = !empty($q['starts_at']) ? new DateTime($q['starts_at']) : null;
+                            $ea = !empty($q['ends_at'])   ? new DateTime($q['ends_at'])   : null;
+                            if ($sa && $now < $sa) echo '<span style="color:var(--warning,#f59e0b)">⏳ ' . date('d M, H:i', $sa->getTimestamp()) . '</span>';
+                            elseif ($ea && $now > $ea) echo '<span style="color:var(--danger)">🔒 Expired</span>';
+                            elseif ($sa || $ea) echo '<span style="color:var(--success)">Active window</span>';
+                            else echo 'Always open';
+                        ?>
+                    </td>
                     <td>
                         <span class="badge <?= $q['is_active'] ? 'badge-success' : 'badge-warning' ?>">
                             <?= $q['is_active'] ? 'Active' : 'Hidden' ?>
@@ -168,6 +195,87 @@ require_once __DIR__ . '/../includes/header.php';
         </table></div>
         <?php endif; ?>
     </div>
-</div>
+<script>
+(function () {
+    const input = document.getElementById('categoryTypeahead');
+    const hiddenId = document.getElementById('selectedCategoryId');
+    const list = document.getElementById('catTypeaheadList');
+    if (!input || !list) return;
+
+    const categories = <?= json_encode($categories) ?>;
+
+    function render(query) {
+        const q = (query || '').trim().toLowerCase();
+        const matches = categories.filter(c => c.name.toLowerCase().includes(q));
+
+        if (matches.length === 0) {
+            list.innerHTML = '<div style="padding:10px;font-size:12.5px;color:var(--muted)">No matching category found</div>';
+            list.style.display = 'block';
+            return;
+        }
+
+        list.innerHTML = '';
+        matches.forEach(c => {
+            const div = document.createElement('div');
+            div.style.padding = '9px 14px';
+            div.style.cursor = 'pointer';
+            div.style.borderBottom = '1px solid var(--border,#E4E6EA)';
+            div.style.fontSize = '13.5px';
+            div.style.color = 'var(--text,#111318)';
+            div.style.background = 'var(--surface,#ffffff)';
+            div.textContent = c.name;
+
+            div.addEventListener('mouseenter', () => {
+                div.style.background = 'var(--accent-light,#E6F1FB)';
+                div.style.color = 'var(--accent,#185FA5)';
+            });
+            div.addEventListener('mouseleave', () => {
+                div.style.background = 'var(--surface,#ffffff)';
+                div.style.color = 'var(--text,#111318)';
+            });
+            div.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                input.value = c.name;
+                hiddenId.value = c.id;
+                list.style.display = 'none';
+            });
+
+            list.appendChild(div);
+        });
+
+        list.style.display = 'block';
+    }
+
+    input.addEventListener('input', function () {
+        hiddenId.value = ''; // reset until valid category is picked
+        const match = categories.find(c => c.name.toLowerCase() === this.value.trim().toLowerCase());
+        if (match) hiddenId.value = match.id;
+        render(this.value);
+    });
+
+    input.addEventListener('focus', function () {
+        render(this.value);
+    });
+
+    input.addEventListener('blur', function () {
+        setTimeout(() => {
+            list.style.display = 'none';
+            // Auto-snap to exact match if typed
+            const match = categories.find(c => c.name.toLowerCase() === input.value.trim().toLowerCase());
+            if (match) {
+                input.value = match.name;
+                hiddenId.value = match.id;
+            } else if (!hiddenId.value) {
+                // If invalid input, highlight first match
+                const first = categories.find(c => c.name.toLowerCase().includes(input.value.trim().toLowerCase()));
+                if (first) {
+                    input.value = first.name;
+                    hiddenId.value = first.id;
+                }
+            }
+        }, 200);
+    });
+})();
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

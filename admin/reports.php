@@ -6,6 +6,41 @@ require_once __DIR__ . '/../config/db.php';
 
 $db = getDB();
 
+// ── CSV Export ──────────────────────────────────────────
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $rows = $db->query("
+        SELECT u.name AS student, u.email,
+               q.title AS quiz, c.name AS category,
+               a.score, a.total_marks,
+               ROUND(a.score * 100 / NULLIF(a.total_marks,0),1) AS pct,
+               a.tab_switch_count,
+               q.negative_marking,
+               a.time_taken_seconds,
+               a.submitted_at
+        FROM attempts a
+        JOIN users u   ON u.id = a.user_id
+        JOIN quizzes q ON q.id = a.quiz_id
+        JOIN categories c ON c.id = q.category_id
+        WHERE a.is_completed = 1
+        ORDER BY a.submitted_at DESC
+    ")->fetchAll();
+
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="quiz_report_' . date('Y-m-d') . '.csv"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['Student', 'Email', 'Quiz', 'Category', 'Score', 'Total Marks', 'Percentage', 'Tab Switches', 'Neg. Marking', 'Time (s)', 'Submitted At']);
+    foreach ($rows as $r) {
+        fputcsv($out, [
+            $r['student'], $r['email'], $r['quiz'], $r['category'],
+            $r['score'], $r['total_marks'], $r['pct'] . '%',
+            $r['tab_switch_count'], $r['negative_marking'],
+            $r['time_taken_seconds'], $r['submitted_at']
+        ]);
+    }
+    fclose($out);
+    exit;
+}
+
 // ── Overview stats ──────────────────────────────────────
 $totalUsers    = $db->query("SELECT COUNT(*) FROM users WHERE role='user'")->fetchColumn();
 $totalQuizzes  = $db->query("SELECT COUNT(*) FROM quizzes")->fetchColumn();
@@ -55,9 +90,12 @@ $maxTrend = max(array_values($trendDays) ?: [1]) ?: 1;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">Reports</div>
-    <div class="page-subtitle">Performance overview across the platform</div>
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <div>
+        <div class="page-title">Reports</div>
+        <div class="page-subtitle">Performance overview across the platform</div>
+    </div>
+    <a href="reports.php?export=csv" class="btn btn-outline btn-sm">⬇️ Export CSV</a>
 </div>
 
 <div class="stat-grid" style="margin-bottom:24px">

@@ -220,3 +220,70 @@ function checkRateLimit(string $key, int $maxAttempts, int $windowSeconds): bool
     $_SESSION['rate_limits'][$key] = $store;
     return $store['count'] <= $maxAttempts;
 }
+
+// ── Daily Streak Tracker ──────────────────────────────
+function updateUserStreak(int $userId, PDO $db): array {
+    $stmt = $db->prepare("SELECT current_streak, longest_streak, last_active_date FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch();
+
+    if (!$user) {
+        return ['current_streak' => 0, 'longest_streak' => 0, 'updated' => false];
+    }
+
+    $today = date('Y-m-d');
+    $yesterday = date('Y-m-d', strtotime('-1 day'));
+    $lastActive = $user['last_active_date'];
+
+    $currentStreak = (int)($user['current_streak'] ?? 0);
+    $longestStreak = (int)($user['longest_streak'] ?? 0);
+
+    if ($lastActive === $today) {
+        // Already recorded today
+        return [
+            'current_streak' => $currentStreak,
+            'longest_streak' => $longestStreak,
+            'updated'        => false
+        ];
+    }
+
+    if ($lastActive === $yesterday) {
+        // Consecutive day
+        $currentStreak++;
+    } else {
+        // Streak broken or brand new
+        $currentStreak = 1;
+    }
+
+    if ($currentStreak > $longestStreak) {
+        $longestStreak = $currentStreak;
+    }
+
+    $update = $db->prepare("UPDATE users SET current_streak = ?, longest_streak = ?, last_active_date = ? WHERE id = ?");
+    $update->execute([$currentStreak, $longestStreak, $today, $userId]);
+
+    $_SESSION['current_streak'] = $currentStreak;
+
+    return [
+        'current_streak' => $currentStreak,
+        'longest_streak' => $longestStreak,
+        'updated'        => true
+    ];
+}
+
+function getUserStreak(int $userId, PDO $db): int {
+    $stmt = $db->prepare("SELECT current_streak, last_active_date FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch();
+    if (!$row) return 0;
+
+    $today = date('Y-m-d');
+    $yesterday = date('Y-m-d', strtotime('-1 day'));
+    $lastActive = $row['last_active_date'];
+
+    if ($lastActive !== $today && $lastActive !== $yesterday) {
+        // Streak has expired if user didn't participate today or yesterday
+        return 0;
+    }
+    return (int)$row['current_streak'];
+}

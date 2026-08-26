@@ -7,6 +7,9 @@ require_once __DIR__ . '/../config/db.php';
 $db     = getDB();
 $userId = $_SESSION['user_id'];
 
+// Streak
+$streak = getUserStreak($userId, $db);
+
 $totalAttempts = $db->prepare("SELECT COUNT(*) FROM attempts WHERE user_id=? AND is_completed=1");
 $totalAttempts->execute([$userId]);
 $totalAttempts = $totalAttempts->fetchColumn();
@@ -81,6 +84,15 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="stat-card">
         <div class="stat-label">Certificates</div>
         <div class="stat-value"><?= $totalCerts ?></div>
+    </div>
+    <div class="stat-card" style="position:relative;overflow:hidden">
+        <div class="stat-label">🔥 Daily Streak</div>
+        <div class="stat-value" style="color:<?= $streak > 0 ? 'var(--warning, #f59e0b)' : 'var(--muted)' ?>"><?= $streak ?></div>
+        <?php if ($streak > 0): ?>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px"><?= $streak === 1 ? 'Day started!' : 'Days in a row!' ?></div>
+        <?php else: ?>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Take a quiz to start!</div>
+        <?php endif; ?>
     </div>
 </div>
 

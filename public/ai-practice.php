@@ -49,9 +49,10 @@ require_once __DIR__ . '/../includes/header.php';
     <form method="POST" id="practiceForm">
         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
 
-        <div class="form-group">
-            <label>What do you want to practice?</label>
-            <input type="text" name="topic" placeholder="e.g. Photosynthesis, Algebra basics, World capitals" required value="<?= htmlspecialchars($topic) ?>">
+        <div class="form-group" style="position:relative">
+            <label>What do you want to practice? <span style="font-size:12px;color:var(--muted)">(Type any topic or category e.g. "Politics", "Science")</span></label>
+            <input type="text" name="topic" id="practiceTopicInput" placeholder="e.g. Politics, Photosynthesis, World capitals, Indian Constitution" required autocomplete="off" value="<?= htmlspecialchars($topic) ?>">
+            <div id="practiceAutocompleteList" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:99;background:var(--surface,#ffffff);border:1px solid var(--border,#E4E6EA);border-radius:var(--radius-sm,6px);max-height:220px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,.08);margin-top:4px"></div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -132,6 +133,89 @@ document.querySelectorAll('.practice-option').forEach(option => {
     const offlineBanner = document.getElementById('offlineBanner');
     const generateBtn   = document.getElementById('generateBtn');
     const practiceForm  = document.getElementById('practiceForm');
+    const topicInput    = document.getElementById('practiceTopicInput');
+    const autoList      = document.getElementById('practiceAutocompleteList');
+
+    const suggestions = [
+        'Politics & Government',
+        'Political Theories & Thinkers',
+        'Indian Constitution & Polity',
+        'World Political Systems',
+        'Elections & Voting Systems',
+        'Public Policy & Administration',
+        'International Relations & Diplomacy',
+        'Science - Physics',
+        'Science - Chemistry',
+        'Science - Biology & Photosynthesis',
+        'World History & Civilizations',
+        'Mathematics - Algebra & Geometry',
+        'Technology - AI & Computer Science',
+        'Geography - Capitals & Rivers',
+        'Sports & Olympics',
+        'Economics & Stock Markets',
+        'Law & Constitution',
+        'Medicine & Human Anatomy',
+        'Psychology & Human Behavior',
+        'Philosophy & Ethics',
+        'Environment & Ecology',
+        'Astronomy & Space Exploration'
+    ];
+
+    function renderAutocomplete(query) {
+        const q = (query || '').trim().toLowerCase();
+        if (!q || !autoList) {
+            if (autoList) autoList.style.display = 'none';
+            return;
+        }
+
+        const matches = suggestions.filter(s => s.toLowerCase().includes(q));
+        if (matches.length === 0) {
+            autoList.style.display = 'none';
+            return;
+        }
+
+        autoList.innerHTML = '';
+        matches.slice(0, 7).forEach(text => {
+            const div = document.createElement('div');
+            div.style.padding = '9px 14px';
+            div.style.cursor = 'pointer';
+            div.style.borderBottom = '1px solid var(--border,#E4E6EA)';
+            div.style.fontSize = '13.5px';
+            div.style.color = 'var(--text,#111318)';
+            div.style.background = 'var(--surface,#ffffff)';
+            div.textContent = text;
+
+            div.addEventListener('mouseenter', () => {
+                div.style.background = 'var(--accent-light,#E6F1FB)';
+                div.style.color = 'var(--accent,#185FA5)';
+            });
+            div.addEventListener('mouseleave', () => {
+                div.style.background = 'var(--surface,#ffffff)';
+                div.style.color = 'var(--text,#111318)';
+            });
+            div.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                topicInput.value = text;
+                autoList.style.display = 'none';
+            });
+
+            autoList.appendChild(div);
+        });
+
+        autoList.style.display = 'block';
+    }
+
+    if (topicInput) {
+        topicInput.addEventListener('input', function () {
+            renderAutocomplete(this.value);
+        });
+        topicInput.addEventListener('focus', function () {
+            if (this.value.trim()) renderAutocomplete(this.value);
+        });
+        topicInput.addEventListener('blur', function () {
+            setTimeout(() => { if (autoList) autoList.style.display = 'none'; }, 200);
+        });
+    }
 
     function updateOnlineState() {
         const isOnline = navigator.onLine;

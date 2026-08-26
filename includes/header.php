@@ -62,6 +62,14 @@ $isAdmin     = isAdmin();
 
     <div class="sidebar-footer">
         Logged in as <strong><?= htmlspecialchars($_SESSION['name']) ?></strong><br>
+        <?php if (!$isAdmin):
+            $db = getDB();
+            $sStreak = getUserStreak($_SESSION['user_id'], $db);
+        ?>
+        <?php if ($sStreak > 0): ?>
+            <span style="color:var(--warning,#f59e0b);font-size:12px;font-weight:600">🔥 <?= $sStreak ?> day<?= $sStreak > 1 ? 's' : '' ?> streak</span><br>
+        <?php endif; ?>
+        <?php endif; ?>
         <a href="/Quiz_app/public/logout.php" style="color:var(--danger);font-size:12px">Logout</a>
     </div>
 </aside>

@@ -160,3 +160,53 @@ PROMPT;
         'improvements'  => trim($parsed['improvements'] ?? ''),
     ];
 }
+
+/**
+ * Generate clear and concise explanations for quiz questions (especially wrong answers).
+ * $items: array of ['id' => int/string, 'question' => string, 'correct_answer' => string, 'user_answer' => string]
+ * Returns: array of [id => explanation_string]
+ */
+function generateAnswerExplanations(array $items): array
+{
+    if (empty($items)) return [];
+
+    $itemList = [];
+    foreach ($items as $item) {
+        $id = $item['id'];
+        $q = $item['question'];
+        $c = $item['correct_answer'];
+        $u = $item['user_answer'] ?? 'None / Skipped';
+        $itemList[] = [
+            'id' => $id,
+            'question' => $q,
+            'correct_answer' => $c,
+            'user_answer' => $u
+        ];
+    }
+
+    $jsonInput = json_encode($itemList);
+    $prompt = <<<PROMPT
+For each quiz question item below, provide a short, accurate, 1-2 sentence explanation of why the correct answer is right and why the user's answer was incorrect.
+Return ONLY a valid JSON array of objects with keys "id" and "explanation". No markdown formatting or extra text.
+
+Items:
+{$jsonInput}
+PROMPT;
+
+    try {
+        $raw = callGemini($prompt, true, min(4096, count($items) * 200 + 300));
+        $parsed = json_decode($raw, true);
+        if (!is_array($parsed)) return [];
+
+        $result = [];
+        foreach ($parsed as $entry) {
+            if (isset($entry['id'], $entry['explanation'])) {
+                $result[$entry['id']] = trim($entry['explanation']);
+            }
+        }
+        return $result;
+    } catch (Exception $e) {
+        error_log('Failed to generate AI explanations: ' . $e->getMessage());
+        return [];
+    }
+}

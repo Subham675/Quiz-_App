@@ -11,6 +11,8 @@ if (!defined('BASE_PATH')) {
     define('BASE_PATH', rtrim($appUrlPath, '/'));
 }
 
+require_once __DIR__ . '/migrate.php';
+
 function getDB(): PDO {
     static $pdo = null;
     if ($pdo === null) {
@@ -22,6 +24,7 @@ function getDB(): PDO {
                 PDO::ATTR_EMULATE_PREPARES         => false,
                 PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
             ]);
+            runMigrations($pdo);
         } catch (PDOException $e) {
             error_log('DB connection failed: ' . $e->getMessage());
             http_response_code(500);
