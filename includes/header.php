@@ -55,6 +55,7 @@ $isAdmin     = isAdmin();
     <a href="/Quiz_app/public/leaderboard.php" class="nav-item <?= $currentPage === 'leaderboard' ? 'active' : '' ?>">Leaderboard</a>
     <a href="/Quiz_app/public/certificates.php"class="nav-item <?= $currentPage === 'certificates'? 'active' : '' ?>">Certificates</a>
     <div class="nav-section">Tools</div>
+    <a href="/Quiz_app/public/adaptive-quiz.php" class="nav-item <?= $currentPage === 'adaptive-quiz' ? 'active' : '' ?>">🎯 Adaptive Quiz</a>
     <a href="/Quiz_app/public/ai-practice.php" class="nav-item <?= $currentPage === 'ai-practice' ? 'active' : '' ?>">AI Practice</a>
     <div class="nav-section">Account</div>
     <a href="/Quiz_app/public/profile.php"     class="nav-item <?= $currentPage === 'profile'     ? 'active' : '' ?>">Profile</a>

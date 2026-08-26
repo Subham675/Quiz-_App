@@ -60,7 +60,9 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="quiz-wrapper">
-    <?php if (isset($_GET['already'])): ?>
+    <?php if (isset($_GET['timeout'])): ?>
+        <div class="alert alert-warning">⏱️ <strong>Time Expired!</strong> The quiz reached the server time limit and was automatically submitted.</div>
+    <?php elseif (isset($_GET['already'])): ?>
         <div class="alert alert-warning">You've already completed this quiz. Each quiz can only be attempted once — here's your result from your first attempt.</div>
     <?php endif; ?>
 

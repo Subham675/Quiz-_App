@@ -22,6 +22,7 @@ CREATE TABLE users (
     is_verified     TINYINT(1) DEFAULT 0,
     is_banned       TINYINT(1) DEFAULT 0,
     is_deleted      TINYINT(1) DEFAULT 0,
+    deleted_at      DATETIME DEFAULT NULL,
     current_streak  INT DEFAULT 0,
     longest_streak  INT DEFAULT 0,
     last_active_date DATE DEFAULT NULL,
@@ -36,6 +37,7 @@ CREATE TABLE categories (
     name        VARCHAR(100) NOT NULL,
     slug        VARCHAR(100) NOT NULL UNIQUE,
     description TEXT DEFAULT NULL,
+    deleted_at  DATETIME DEFAULT NULL,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -54,6 +56,7 @@ CREATE TABLE quizzes (
     ends_at             DATETIME DEFAULT NULL,         -- scheduling window end
     is_ai_generated     TINYINT(1) DEFAULT 0,
     is_active           TINYINT(1) DEFAULT 1,
+    deleted_at          DATETIME DEFAULT NULL,
     created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
 );
@@ -68,6 +71,11 @@ CREATE TABLE questions (
     marks           INT DEFAULT 1,
     difficulty      ENUM('easy', 'medium', 'hard') DEFAULT 'medium',
     tag             VARCHAR(100) DEFAULT NULL,
+    times_attempted INT DEFAULT 0,                     -- total students who attempted
+    times_correct   INT DEFAULT 0,                     -- total students who answered correctly
+    is_flagged      TINYINT(1) DEFAULT 0,              -- auto-flag for quality review
+    flag_reason     VARCHAR(255) DEFAULT NULL,
+    deleted_at      DATETIME DEFAULT NULL,
     order_index     INT DEFAULT 0,                     -- for randomization control
     created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE
@@ -116,6 +124,22 @@ CREATE TABLE attempt_answers (
     FOREIGN KEY (attempt_id)         REFERENCES attempts(id) ON DELETE CASCADE,
     FOREIGN KEY (question_id)        REFERENCES questions(id) ON DELETE CASCADE,
     FOREIGN KEY (selected_option_id) REFERENCES options(id) ON DELETE SET NULL
+);
+
+-- -----------------------------------------------
+-- 8. email_queue (Async background email processor)
+-- -----------------------------------------------
+CREATE TABLE email_queue (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    to_email        VARCHAR(150) NOT NULL,
+    to_name         VARCHAR(100) NOT NULL,
+    subject         VARCHAR(200) NOT NULL,
+    body            TEXT NOT NULL,
+    status          ENUM('pending', 'sent', 'failed') DEFAULT 'pending',
+    attempts        INT DEFAULT 0,
+    error_message   TEXT DEFAULT NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sent_at         DATETIME DEFAULT NULL
 );
 
 -- -----------------------------------------------

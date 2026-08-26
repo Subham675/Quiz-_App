@@ -57,12 +57,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_quiz'])) {
     }
 }
 
-// ── Handle delete ──────────────────────────────────────
+// ── Handle soft delete ─────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_quiz'])) {
     verifyCsrf();
-    $stmt = $db->prepare("DELETE FROM quizzes WHERE id = ?");
+    $stmt = $db->prepare("UPDATE quizzes SET deleted_at = NOW() WHERE id = ?");
     $stmt->execute([(int)$_POST['delete_quiz']]);
-    $success = 'Quiz deleted.';
+    $success = 'Quiz moved to trash (soft-deleted).';
+}
+
+// ── Handle restore ─────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['restore_quiz'])) {
+    verifyCsrf();
+    $stmt = $db->prepare("UPDATE quizzes SET deleted_at = NULL WHERE id = ?");
+    $stmt->execute([(int)$_POST['restore_quiz']]);
+    $success = 'Quiz restored successfully.';
 }
 
 // ── Editing? load existing values ─────────────────────
@@ -73,18 +81,43 @@ if (isset($_GET['edit'])) {
     $editQuiz = $stmt->fetch();
 }
 
-$quizzes = $db->query("
-    SELECT q.*, c.name AS category, (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) AS q_count
-    FROM quizzes q JOIN categories c ON c.id = q.category_id
-    ORDER BY q.created_at DESC
-")->fetchAll();
+$showTrash = isset($_GET['trash']);
+
+if ($showTrash) {
+    $quizzes = $db->query("
+        SELECT q.*, c.name AS category, (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) AS q_count
+        FROM quizzes q JOIN categories c ON c.id = q.category_id
+        WHERE q.deleted_at IS NOT NULL
+        ORDER BY q.created_at DESC
+    ")->fetchAll();
+} else {
+    $quizzes = $db->query("
+        SELECT q.*, c.name AS category, (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id AND deleted_at IS NULL) AS q_count
+        FROM quizzes q JOIN categories c ON c.id = q.category_id
+        WHERE q.deleted_at IS NULL
+        ORDER BY q.created_at DESC
+    ")->fetchAll();
+}
+
+$trashCount = (int)$db->query("SELECT COUNT(*) FROM quizzes WHERE deleted_at IS NOT NULL")->fetchColumn();
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">Manage Quizzes</div>
-    <div class="page-subtitle">Create and edit quizzes</div>
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <div>
+        <div class="page-title">Manage Quizzes</div>
+        <div class="page-subtitle"><?= $showTrash ? 'Deleted Quizzes (Trash)' : 'Create, edit, and schedule quizzes' ?></div>
+    </div>
+    <div>
+        <?php if ($showTrash): ?>
+            <a href="manage-quizzes.php" class="btn btn-primary btn-sm">Active Quizzes</a>
+        <?php else: ?>
+            <a href="manage-quizzes.php?trash=1" class="btn btn-outline btn-sm">
+                🗑️ Trash <?= $trashCount > 0 ? "({$trashCount})" : '' ?>
+            </a>
+        <?php endif; ?>
+    </div>
 </div>
 
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
@@ -182,12 +215,19 @@ require_once __DIR__ . '/../includes/header.php';
                         </span>
                     </td>
                     <td style="white-space:nowrap">
-                        <a href="manage-questions.php?quiz_id=<?= $q['id'] ?>" class="btn btn-sm btn-outline">Questions</a>
-                        <a href="manage-quizzes.php?edit=<?= $q['id'] ?>" class="btn btn-sm btn-outline">Edit</a>
-                        <form method="POST" style="display:inline" onsubmit="return confirm('Delete this quiz and all its questions/attempts?');">
-                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                            <button type="submit" name="delete_quiz" value="<?= $q['id'] ?>" class="btn btn-sm btn-danger">Delete</button>
-                        </form>
+                        <?php if ($showTrash): ?>
+                            <form method="POST" style="display:inline">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                <button type="submit" name="restore_quiz" value="<?= $q['id'] ?>" class="btn btn-sm btn-primary">Restore</button>
+                            </form>
+                        <?php else: ?>
+                            <a href="manage-questions.php?quiz_id=<?= $q['id'] ?>" class="btn btn-sm btn-outline">Questions</a>
+                            <a href="manage-quizzes.php?edit=<?= $q['id'] ?>" class="btn btn-sm btn-outline">Edit</a>
+                            <form method="POST" style="display:inline" onsubmit="return confirm('Move this quiz to trash?');">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                <button type="submit" name="delete_quiz" value="<?= $q['id'] ?>" class="btn btn-sm btn-danger">Delete</button>
+                            </form>
+                        <?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>

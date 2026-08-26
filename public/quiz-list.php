@@ -8,16 +8,16 @@ $db     = getDB();
 $userId = $_SESSION['user_id'];
 
 $catId = isset($_GET['category']) ? (int)$_GET['category'] : 0;
-$categories = $db->query("SELECT id, name FROM categories ORDER BY name")->fetchAll();
+$categories = $db->query("SELECT id, name FROM categories WHERE deleted_at IS NULL ORDER BY name")->fetchAll();
 
 $sql = "
     SELECT q.id, q.title, q.description, q.time_limit_seconds, q.negative_marking,
            q.starts_at, q.ends_at, c.name AS category, c.id AS category_id,
-           (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id) AS q_count,
+           (SELECT COUNT(*) FROM questions WHERE quiz_id = q.id AND deleted_at IS NULL) AS q_count,
            (SELECT id FROM attempts WHERE quiz_id = q.id AND user_id = ? AND is_completed = 1 ORDER BY submitted_at DESC LIMIT 1) AS attempt_id
     FROM quizzes q
     JOIN categories c ON c.id = q.category_id
-    WHERE q.is_active = 1
+    WHERE q.is_active = 1 AND q.deleted_at IS NULL AND c.deleted_at IS NULL
 ";
 $params = [$userId];
 

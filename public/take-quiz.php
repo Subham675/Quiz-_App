@@ -14,7 +14,7 @@ if ($quizId <= 0) {
     exit;
 }
 
-$quizStmt = $db->prepare("SELECT * FROM quizzes WHERE id = ? AND is_active = 1");
+$quizStmt = $db->prepare("SELECT * FROM quizzes WHERE id = ? AND is_active = 1 AND deleted_at IS NULL");
 $quizStmt->execute([$quizId]);
 $quiz = $quizStmt->fetch();
 
@@ -54,15 +54,7 @@ if (!empty($quiz['ends_at'])) {
     }
 }
 
-$questionsStmt = $db->prepare("SELECT id, question_text, marks FROM questions WHERE quiz_id = ? ORDER BY order_index ASC, id ASC");
-$questionsStmt->execute([$quizId]);
-$questions = $questionsStmt->fetchAll();
-
-if (!empty($questions)) {
-    shuffle($questions);
-}
-
-// ── Block retakes ──────────────────────────────────────
+// ── Block retakes (completed attempts) ─────────────────
 $existingStmt = $db->prepare("SELECT id FROM attempts WHERE user_id = ? AND quiz_id = ? AND is_completed = 1 ORDER BY submitted_at DESC LIMIT 1");
 $existingStmt->execute([$userId, $quizId]);
 $existingAttemptId = $existingStmt->fetchColumn();
@@ -72,32 +64,81 @@ if ($existingAttemptId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$optionsStmt = $db->prepare("SELECT id, question_id, option_text, is_correct FROM options WHERE question_id = ?");
+// ── Active attempt lock / resume ──────────────────────
+$activeStmt = $db->prepare("
+    SELECT id, started_at, tab_switch_count
+    FROM attempts
+    WHERE user_id = ? AND quiz_id = ? AND is_completed = 0
+    ORDER BY id DESC LIMIT 1
+");
+$activeStmt->execute([$userId, $quizId]);
+$activeAttempt = $activeStmt->fetch();
+
+$timeLimit = (int)$quiz['time_limit_seconds'];
+
+if ($activeAttempt) {
+    $attemptId = (int)$activeAttempt['id'];
+    $startedTime = strtotime($activeAttempt['started_at']);
+    $elapsed = time() - $startedTime;
+    $remainingSeconds = max(0, $timeLimit - $elapsed);
+
+    // If active attempt has already expired on server (+15s grace buffer), auto-complete it
+    if ($elapsed > ($timeLimit + 30) && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+        $db->prepare("UPDATE attempts SET is_completed = 1, submitted_at = NOW(), time_taken_seconds = ? WHERE id = ?")
+           ->execute([$timeLimit, $attemptId]);
+        header('Location: result.php?attempt=' . $attemptId . '&timeout=1');
+        exit;
+    }
+} else {
+    // Create new active draft attempt
+    $draftStmt = $db->prepare("
+        INSERT INTO attempts (user_id, quiz_id, score, total_marks, time_taken_seconds, tab_switch_count, is_completed, started_at)
+        VALUES (?, ?, 0, 0, 0, 0, 0, NOW())
+    ");
+    $draftStmt->execute([$userId, $quizId]);
+    $attemptId = (int)$db->lastInsertId();
+    $remainingSeconds = $timeLimit;
+}
 
 // ── Handle tab-switch AJAX ping ───────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['tab_switch_ping'])) {
     header('Content-Type: application/json');
     $pendingAttemptId = (int)($_POST['attempt_id'] ?? 0);
-    if ($pendingAttemptId > 0) {
-        // Check it belongs to this user
-        $chk = $db->prepare("SELECT id FROM attempts WHERE id = ? AND user_id = ? AND is_completed = 0");
-        $chk->execute([$pendingAttemptId, $userId]);
-        if ($chk->fetchColumn()) {
-            $db->prepare("UPDATE attempts SET tab_switch_count = tab_switch_count + 1 WHERE id = ?")->execute([$pendingAttemptId]);
-        }
+    if ($pendingAttemptId === $attemptId) {
+        $db->prepare("UPDATE attempts SET tab_switch_count = tab_switch_count + 1 WHERE id = ? AND user_id = ? AND is_completed = 0")
+           ->execute([$attemptId, $userId]);
     }
     echo json_encode(['ok' => true]);
     exit;
 }
 
-// ── Handle submission ─────────────────────────────────
+// ── Fetch questions & options with server-side shuffle seed
+$questionsStmt = $db->prepare("SELECT id, question_text, marks FROM questions WHERE quiz_id = ? AND deleted_at IS NULL ORDER BY order_index ASC, id ASC");
+$questionsStmt->execute([$quizId]);
+$questions = $questionsStmt->fetchAll();
+
+// Seeded server-side shuffle tied to this attempt ID (consistent on refresh, unpredictable across users)
+if (!empty($questions)) {
+    mt_srand($attemptId * 7919);
+    for ($i = count($questions) - 1; $i > 0; $i--) {
+        $j = mt_rand(0, $i);
+        $tmp = $questions[$i];
+        $questions[$i] = $questions[$j];
+        $questions[$j] = $tmp;
+    }
+}
+
+$optionsStmt = $db->prepare("SELECT id, question_id, option_text, is_correct FROM options WHERE question_id = ?");
+
+// ── Handle Submission ─────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['tab_switch_ping'])) {
     verifyCsrf();
 
-    $dupeCheck = $db->prepare("SELECT id FROM attempts WHERE user_id = ? AND quiz_id = ? AND is_completed = 1 LIMIT 1");
-    $dupeCheck->execute([$userId, $quizId]);
-    if ($already = $dupeCheck->fetchColumn()) {
-        header('Location: result.php?attempt=' . $already . '&already=1');
+    // Prevent double submission
+    $dupeCheck = $db->prepare("SELECT id FROM attempts WHERE id = ? AND is_completed = 1");
+    $dupeCheck->execute([$attemptId]);
+    if ($dupeCheck->fetchColumn()) {
+        header('Location: result.php?attempt=' . $attemptId . '&already=1');
         exit;
     }
 
@@ -106,9 +147,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['tab_switch_ping'])) 
         exit;
     }
 
+    // ── Server-Side Timer Enforcement ─────────────────
+    $startedStmt = $db->prepare("SELECT started_at, tab_switch_count FROM attempts WHERE id = ?");
+    $startedStmt->execute([$attemptId]);
+    $attemptMeta = $startedStmt->fetch();
+
+    $serverStartTime = strtotime($attemptMeta['started_at'] ?? 'now');
+    $serverElapsed = max(1, time() - $serverStartTime);
+    $timeLimitWithGrace = $timeLimit + 15; // 15 seconds network/render grace period
+
+    $timedOut = ($serverElapsed > $timeLimitWithGrace);
+    $finalTimeTaken = min($serverElapsed, $timeLimit);
+    $tabSwitches = (int)($attemptMeta['tab_switch_count'] ?? 0);
+
     $answers       = $_POST['answers'] ?? [];
-    $timeTaken     = (int)($_POST['time_taken'] ?? 0);
-    $tabSwitches   = (int)($_POST['tab_switch_count'] ?? 0);
     $negativeMarking = (float)($quiz['negative_marking'] ?? 0.00);
 
     $rawScore    = 0.0;
@@ -117,16 +169,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['tab_switch_ping'])) 
 
     $db->beginTransaction();
 
-    $attemptStmt = $db->prepare("
-        INSERT INTO attempts (user_id, quiz_id, score, total_marks, time_taken_seconds, tab_switch_count, is_completed, submitted_at)
-        VALUES (?, ?, 0, 0, ?, ?, 1, NOW())
-    ");
-    $attemptStmt->execute([$userId, $quizId, $timeTaken, $tabSwitches]);
-    $attemptId = $db->lastInsertId();
-
     $answerStmt = $db->prepare("
         INSERT INTO attempt_answers (attempt_id, question_id, selected_option_id, is_correct)
         VALUES (?, ?, ?, ?)
+    ");
+
+    $updQuestionStats = $db->prepare("
+        UPDATE questions
+        SET times_attempted = times_attempted + 1,
+            times_correct = times_correct + ?
+        WHERE id = ?
     ");
 
     $wrongAnswerItems = [];
@@ -150,14 +202,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['tab_switch_ping'])) 
 
         $answerStmt->execute([$attemptId, $q['id'], $selectedId ?: null, $isCorrect ? 1 : 0]);
 
+        // ── Increment question-level analytics ─────────
+        $updQuestionStats->execute([$isCorrect ? 1 : 0, $q['id']]);
+
         // Collect wrong/skipped for AI explanation
         if (!$isCorrect) {
-            // Fetch correct option text
             $correctOpt = $db->prepare("SELECT option_text FROM options WHERE question_id = ? AND is_correct = 1 LIMIT 1");
             $correctOpt->execute([$q['id']]);
             $correctText = $correctOpt->fetchColumn() ?? 'N/A';
 
-            // Fetch selected option text
             $selectedText = 'None / Skipped';
             if ($selectedId) {
                 $selOpt = $db->prepare("SELECT option_text FROM options WHERE id = ? LIMIT 1");
@@ -176,8 +229,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['tab_switch_ping'])) 
 
     $finalScore = max(0, $rawScore - $deductions);
 
-    $updateStmt = $db->prepare("UPDATE attempts SET score = ?, total_marks = ? WHERE id = ?");
-    $updateStmt->execute([$finalScore, $totalMarks, $attemptId]);
+    // Finalize attempt
+    $updateStmt = $db->prepare("
+        UPDATE attempts
+        SET score = ?, total_marks = ?, time_taken_seconds = ?, is_completed = 1, submitted_at = NOW()
+        WHERE id = ?
+    ");
+    $updateStmt->execute([$finalScore, $totalMarks, $finalTimeTaken, $attemptId]);
+
+    // ── Auto-flag problematic questions ───────────────
+    $evalQuestions = $db->prepare("
+        SELECT id, times_attempted, times_correct
+        FROM questions
+        WHERE quiz_id = ?
+    ");
+    $evalQuestions->execute([$quizId]);
+    $allQ = $evalQuestions->fetchAll();
+
+    $flagStmt = $db->prepare("UPDATE questions SET is_flagged = ?, flag_reason = ? WHERE id = ?");
+    foreach ($allQ as $qRow) {
+        $att = (int)$qRow['times_attempted'];
+        $cor = (int)$qRow['times_correct'];
+        if ($att >= 5) {
+            $pct = round(($cor / $att) * 100);
+            if ($pct < 15) {
+                $flagStmt->execute([1, "High failure rate ({$pct}% correct) — check answer key or clarity", $qRow['id']]);
+            } elseif ($att >= 10 && $pct > 95) {
+                $flagStmt->execute([1, "High pass rate ({$pct}% correct) — question may be too simple", $qRow['id']]);
+            } else {
+                $flagStmt->execute([0, null, $qRow['id']]);
+            }
+        }
+    }
 
     $db->commit();
 
@@ -195,18 +278,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['tab_switch_ping'])) 
     // ── Update daily streak ───────────────────────────
     updateUserStreak($userId, $db);
 
-    header('Location: result.php?attempt=' . $attemptId);
+    header('Location: result.php?attempt=' . $attemptId . ($timedOut ? '&timeout=1' : ''));
     exit;
 }
-
-// ── Create a draft attempt row to track tab switches ─
-// (a placeholder row is inserted without is_completed=1 so the JS can ping it)
-$draftStmt = $db->prepare("
-    INSERT INTO attempts (user_id, quiz_id, score, total_marks, time_taken_seconds, tab_switch_count, is_completed)
-    VALUES (?, ?, 0, 0, 0, 0, 0)
-");
-$draftStmt->execute([$userId, $quizId]);
-$draftAttemptId = $db->lastInsertId();
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -217,12 +291,12 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="page-title"><?= htmlspecialchars($quiz['title']) ?></div>
             <div class="page-subtitle"><?= count($questions) ?> questions<?= ($quiz['negative_marking'] ?? 0) > 0 ? ' · <span style="color:var(--danger)">−' . number_format($quiz['negative_marking'], 2) . ' per wrong answer</span>' : '' ?></div>
         </div>
-        <div class="quiz-timer" id="timer"><?= gmdate('i:s', $quiz['time_limit_seconds']) ?></div>
+        <div class="quiz-timer" id="timer"><?= gmdate('i:s', $remainingSeconds) ?></div>
     </div>
 
     <!-- Tab switch anti-cheat warning banner -->
-    <div id="tabSwitchBanner" class="alert alert-warning" style="display:none">
-        ⚠️ <strong>Tab switch detected!</strong> Switching tabs is logged. <span id="tabSwitchCount">0</span> warning(s) recorded.
+    <div id="tabSwitchBanner" class="alert alert-warning" style="<?= (int)($activeAttempt['tab_switch_count'] ?? 0) > 0 ? '' : 'display:none' ?>">
+        ⚠️ <strong>Anti-Cheat Active:</strong> Tab switching is monitored. <span id="tabSwitchCount"><?= (int)($activeAttempt['tab_switch_count'] ?? 0) ?></span> warning(s) logged.
     </div>
 
     <div class="progress-bar">
@@ -237,13 +311,19 @@ require_once __DIR__ . '/../includes/header.php';
     <form method="POST" id="quizForm">
         <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
         <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
-        <input type="hidden" name="time_taken" id="timeTakenInput" value="0">
-        <input type="hidden" name="tab_switch_count" id="tabSwitchInput" value="0">
 
         <?php foreach ($questions as $i => $q):
             $optionsStmt->execute([$q['id']]);
             $options = $optionsStmt->fetchAll();
-            shuffle($options);
+
+            // Seeded option shuffle tied to attempt + question ID
+            mt_srand($attemptId * 31 + $q['id']);
+            for ($k = count($options) - 1; $k > 0; $k--) {
+                $r = mt_rand(0, $k);
+                $tmp = $options[$k];
+                $options[$k] = $options[$r];
+                $options[$r] = $tmp;
+            }
         ?>
         <div class="question-card" data-question>
             <div class="question-number">Question <?= $i + 1 ?> of <?= count($questions) ?> · <?= $q['marks'] ?> mark<?= $q['marks'] > 1 ? 's' : '' ?></div>
@@ -267,13 +347,11 @@ require_once __DIR__ . '/../includes/header.php';
 
 <script>
 (function () {
-    // ── Timer ────────────────────────────────────────
-    let secondsLeft = <?= (int)$quiz['time_limit_seconds'] ?>;
-    const totalSeconds = secondsLeft;
+    let secondsLeft = <?= (int)$remainingSeconds ?>;
+    const totalSeconds = <?= (int)$timeLimit ?>;
     const timerEl  = document.getElementById('timer');
     const fillEl   = document.getElementById('progressFill');
     const form     = document.getElementById('quizForm');
-    const timeInput = document.getElementById('timeTakenInput');
 
     function formatTime(s) {
         const m = Math.floor(s / 60).toString().padStart(2, '0');
@@ -311,7 +389,6 @@ require_once __DIR__ . '/../includes/header.php';
 
         if (secondsLeft <= 0) {
             clearInterval(interval);
-            if (timeInput) timeInput.value = totalSeconds;
             if (form) {
                 form.querySelectorAll('[required]').forEach(el => el.removeAttribute('required'));
                 form.submit();
@@ -319,28 +396,17 @@ require_once __DIR__ . '/../includes/header.php';
         }
     }, 1000);
 
-    if (form) {
-        form.addEventListener('submit', () => {
-            const taken = totalSeconds - Math.max(secondsLeft, 0);
-            if (timeInput) timeInput.value = taken;
-            clearInterval(interval);
-        });
-    }
-
     // ── Tab Switch Anti-Cheat ─────────────────────────
-    const draftAttemptId = <?= (int)$draftAttemptId ?>;
+    const draftAttemptId = <?= (int)$attemptId ?>;
     const tabBanner = document.getElementById('tabSwitchBanner');
     const tabCountEl = document.getElementById('tabSwitchCount');
-    const tabInput = document.getElementById('tabSwitchInput');
-    let switchCount = 0;
+    let switchCount = <?= (int)($activeAttempt['tab_switch_count'] ?? 0) ?>;
 
     function recordTabSwitch() {
         switchCount++;
-        if (tabInput) tabInput.value = switchCount;
         if (tabCountEl) tabCountEl.textContent = switchCount;
         if (tabBanner) tabBanner.style.display = 'block';
 
-        // Ping backend to log it
         const fd = new FormData();
         fd.append('tab_switch_ping', '1');
         fd.append('attempt_id', draftAttemptId);

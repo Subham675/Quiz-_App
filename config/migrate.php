@@ -14,15 +14,25 @@ function runMigrations(PDO $db): void
             'longest_streak'   => 'INT DEFAULT 0',
             'last_active_date' => 'DATE DEFAULT NULL',
             'is_deleted'       => 'TINYINT(1) DEFAULT 0',
+            'deleted_at'       => 'DATETIME DEFAULT NULL',
+        ],
+        'categories' => [
+            'deleted_at'       => 'DATETIME DEFAULT NULL',
         ],
         'quizzes' => [
             'negative_marking' => 'DECIMAL(4,2) DEFAULT 0.00',
             'starts_at'        => 'DATETIME DEFAULT NULL',
             'ends_at'          => 'DATETIME DEFAULT NULL',
+            'deleted_at'       => 'DATETIME DEFAULT NULL',
         ],
         'questions' => [
             'difficulty'       => "ENUM('easy', 'medium', 'hard') DEFAULT 'medium'",
             'tag'              => 'VARCHAR(100) DEFAULT NULL',
+            'times_attempted'  => 'INT DEFAULT 0',
+            'times_correct'    => 'INT DEFAULT 0',
+            'is_flagged'       => 'TINYINT(1) DEFAULT 0',
+            'flag_reason'      => 'VARCHAR(255) DEFAULT NULL',
+            'deleted_at'       => 'DATETIME DEFAULT NULL',
         ],
         'attempts' => [
             'tab_switch_count' => 'INT DEFAULT 0',
@@ -44,6 +54,22 @@ function runMigrations(PDO $db): void
             }
         }
     }
+
+    // Create email_queue table if not exists
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS email_queue (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            to_email VARCHAR(150) NOT NULL,
+            to_name VARCHAR(100) NOT NULL,
+            subject VARCHAR(200) NOT NULL,
+            body TEXT NOT NULL,
+            status ENUM('pending','sent','failed') DEFAULT 'pending',
+            attempts INT DEFAULT 0,
+            error_message TEXT DEFAULT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            sent_at DATETIME DEFAULT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+    } catch (Exception $e) {}
 
     // Ensure attempts.score can store decimals if negative marking is used
     try {
