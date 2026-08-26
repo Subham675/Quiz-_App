@@ -71,6 +71,19 @@ function runMigrations(PDO $db): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
     } catch (Exception $e) {}
 
+    // Create rate_limits table if not exists
+    try {
+        $db->exec("CREATE TABLE IF NOT EXISTS rate_limits (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            ip VARCHAR(45) NOT NULL,
+            action VARCHAR(50) NOT NULL,
+            attempts INT DEFAULT 0,
+            last_attempt DATETIME DEFAULT NULL,
+            blocked_until DATETIME DEFAULT NULL,
+            UNIQUE KEY unique_ip_action (ip, action)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;");
+    } catch (Exception $e) {}
+
     // Ensure attempts.score can store decimals if negative marking is used
     try {
         $db->exec("ALTER TABLE attempts MODIFY COLUMN score DECIMAL(6,2) DEFAULT 0.00");

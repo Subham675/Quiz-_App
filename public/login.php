@@ -184,6 +184,14 @@ body {
                 <p>Sign in to continue your quiz journey</p>
             </div>
 
+            <?php 
+            $regSuccess = $_SESSION['reg_success'] ?? '';
+            if ($regSuccess) {
+                unset($_SESSION['reg_success']);
+                echo '<div style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;border-radius:12px;padding:12px 14px;font-size:0.85rem;margin-bottom:16px;font-weight:500">✓ ' . htmlspecialchars($regSuccess) . '</div>';
+            }
+            ?>
+
             <?php if ($error): ?>
                 <div class="php-error"><?= htmlspecialchars($error) ?></div>
             <?php endif; ?>

@@ -58,6 +58,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Registration failed. Please try again.';
                 goto render;
             }
+            $smtpUser = $_ENV['MAIL_USER'] ?? $_ENV['SMTP_USER'] ?? '';
+            $smtpPass = $_ENV['MAIL_PASS'] ?? $_ENV['SMTP_PASS'] ?? '';
+
+            if (empty($smtpUser) || empty($smtpPass)) {
+                // No SMTP configured — auto-verify the user instantly
+                $db->prepare("UPDATE users SET is_verified = 1 WHERE id = ?")->execute([$userId]);
+                $_SESSION['reg_success'] = 'Account created and verified! You can now log in.';
+                header('Location: login.php');
+                exit;
+            }
+
             if (sendOTPEmail($email, $name, $otp)) {
                 $_SESSION['pending_user_id'] = $userId;
                 header('Location: verify-otp.php');

@@ -85,11 +85,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="auth-wrapper">
     <div class="auth-card">
         <div class="auth-logo">QuizApp</div>
-        <?php if (!empty($_SESSION['dev_otp'])): ?>
-            <div class="alert alert-info" style="font-size:13px">
-                💡 <strong>Local Test OTP:</strong> <code style="font-size:15px;font-weight:700"><?= htmlspecialchars($_SESSION['dev_otp']) ?></code> (auto-generated since SMTP is not configured)
-            </div>
-        <?php endif; ?>
         <?php if ($error): ?>
             <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
