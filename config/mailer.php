@@ -38,26 +38,25 @@ function sendOTPEmail(string $toEmail, string $toName, int $otp): bool {
     }
 
     try {
-        set_time_limit(10);
+        set_time_limit(15);
         $mail = getMailer();
         $mail->addAddress($toEmail, $toName);
-        $mail->Subject = 'Your QuizApp OTP Code';
+        $mail->Subject = "{$otp} is your QuizApp Verification Code";
         $mail->Body    = "
-            <div style='font-family:sans-serif;max-width:480px;margin:auto'>
-                <h2 style='color:#1a1a1a'>Verify your email</h2>
-                <p>Hi {$toName}, use the OTP below to verify your account.</p>
-                <div style='font-size:32px;font-weight:700;letter-spacing:8px;color:#185FA5;margin:24px 0'>{$otp}</div>
-                <p style='color:#666;font-size:13px'>This OTP expires in 10 minutes. Do not share it with anyone.</p>
+            <div style='font-family:sans-serif;max-width:480px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:12px'>
+                <h2 style='color:#111827;margin-top:0'>Verify your email address</h2>
+                <p style='color:#4b5563;font-size:15px'>Hi <strong>{$toName}</strong>, thank you for registering with QuizApp!</p>
+                <p style='color:#4b5563;font-size:14px'>Please use the following 6-digit verification code to complete your registration:</p>
+                <div style='font-size:36px;font-weight:800;letter-spacing:10px;color:#185FA5;background:#f0f7ff;padding:16px 20px;border-radius:8px;text-align:center;margin:24px 0'>{$otp}</div>
+                <p style='color:#6b7280;font-size:12.5px;margin-bottom:0'>This code will expire in 10 minutes. If you did not sign up for QuizApp, please ignore this email.</p>
             </div>
         ";
+        $mail->AltBody = "Hi {$toName}, your QuizApp verification code is: {$otp} (expires in 10 minutes).";
         $mail->send();
         return true;
     } catch (Exception $e) {
         error_log('Mailer error: ' . $e->getMessage());
-        // Fallback to dev mode so registration does not fail
-        if (session_status() === PHP_SESSION_NONE) session_start();
-        $_SESSION['dev_otp'] = $otp;
-        return true;
+        return false;
     }
 }
 
