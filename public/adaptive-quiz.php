@@ -8,6 +8,98 @@ require_once __DIR__ . '/../includes/gemini.php';
 $db     = getDB();
 $userId = $_SESSION['user_id'];
 
+function getOrGenerateAdaptiveQuestion(PDO $db, int $categoryId, string $targetDifficulty, array $answeredIds = []): ?array {
+    $levelsToTry = [$targetDifficulty, 'medium', 'easy', 'hard'];
+
+    // 1. Try finding an existing question in the DB
+    foreach ($levelsToTry as $tryLevel) {
+        $placeholders = empty($answeredIds) ? '' : ' AND q.id NOT IN (' . implode(',', array_map('intval', $answeredIds)) . ')';
+        $catFilter = $categoryId > 0 ? " AND qu.category_id = {$categoryId}" : "";
+
+        $qStmt = $db->query("
+            SELECT q.id, q.question_text, q.marks, q.difficulty, q.tag, qu.title AS quiz_title
+            FROM questions q
+            JOIN quizzes qu ON qu.id = q.quiz_id
+            WHERE q.deleted_at IS NULL AND qu.deleted_at IS NULL AND q.difficulty = '{$tryLevel}' {$catFilter} {$placeholders}
+            ORDER BY RAND()
+            LIMIT 1
+        ");
+        $q = $qStmt->fetch();
+        if ($q) {
+            $optStmt = $db->prepare("SELECT id, option_text FROM options WHERE question_id = ? ORDER BY RAND()");
+            $optStmt->execute([$q['id']]);
+            $options = $optStmt->fetchAll();
+
+            return [
+                'id'            => (int)$q['id'],
+                'question_text' => $q['question_text'],
+                'marks'         => (int)$q['marks'],
+                'difficulty'    => $q['difficulty'],
+                'tag'           => $q['tag'],
+                'options'       => $options
+            ];
+        }
+    }
+
+    // 2. If no questions exist in DB for this category, generate dynamically via Gemini AI
+    $catName = 'General Knowledge';
+    if ($categoryId > 0) {
+        $cStmt = $db->prepare("SELECT name FROM categories WHERE id = ?");
+        $cStmt->execute([$categoryId]);
+        $catName = $cStmt->fetchColumn() ?: 'General Knowledge';
+    }
+
+    try {
+        $aiQuestions = generateQuizQuestions($catName, 4, $targetDifficulty);
+        if (!empty($aiQuestions)) {
+            // Find or create quiz container
+            $quizStmt = $db->prepare("SELECT id FROM quizzes WHERE category_id = ? AND is_ai_generated = 1 AND deleted_at IS NULL LIMIT 1");
+            $quizStmt->execute([$categoryId ?: 1]);
+            $quizId = $quizStmt->fetchColumn();
+
+            if (!$quizId) {
+                $insQ = $db->prepare("INSERT INTO quizzes (category_id, title, description, is_ai_generated, is_active) VALUES (?, ?, ?, 1, 1)");
+                $insQ->execute([$categoryId ?: 1, "Adaptive Practice: {$catName}", "Dynamically generated adaptive questions for {$catName}"]);
+                $quizId = (int)$db->lastInsertId();
+            }
+
+            $insQuestion = $db->prepare("INSERT INTO questions (quiz_id, question_text, marks, difficulty, tag) VALUES (?, ?, 1, ?, ?)");
+            $insOpt = $db->prepare("INSERT INTO options (question_id, option_text, is_correct) VALUES (?, ?, ?)");
+
+            $firstResult = null;
+            foreach ($aiQuestions as $idx => $aiQ) {
+                $insQuestion->execute([$quizId, $aiQ['question'], $targetDifficulty, $catName]);
+                $newQId = (int)$db->lastInsertId();
+
+                $optsFormatted = [];
+                foreach ($aiQ['options'] as $opt) {
+                    $insOpt->execute([$newQId, $opt['text'], $opt['correct'] ? 1 : 0]);
+                    $optsFormatted[] = [
+                        'id' => (int)$db->lastInsertId(),
+                        'option_text' => $opt['text']
+                    ];
+                }
+
+                if ($idx === 0) {
+                    $firstResult = [
+                        'id'            => $newQId,
+                        'question_text' => $aiQ['question'],
+                        'marks'         => 1,
+                        'difficulty'    => $targetDifficulty,
+                        'tag'           => $catName,
+                        'options'       => $optsFormatted
+                    ];
+                }
+            }
+            return $firstResult;
+        }
+    } catch (Exception $e) {
+        error_log('Adaptive AI gen error: ' . $e->getMessage());
+    }
+
+    return null;
+}
+
 // ── Handle AJAX next question / answer evaluation ───────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
@@ -69,34 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $answeredIds[] = $questionId;
 
         // Fetch next question matching target difficulty & category
-        $nextQ = null;
-        $levelsToTry = [$nextLevel, 'medium', 'easy', 'hard'];
-
-        foreach ($levelsToTry as $tryLevel) {
-            $placeholders = empty($answeredIds) ? '' : ' AND q.id NOT IN (' . implode(',', array_map('intval', $answeredIds)) . ')';
-            $catFilter = $categoryId > 0 ? " AND qu.category_id = {$categoryId}" : "";
-
-            $qStmt = $db->query("
-                SELECT q.id, q.question_text, q.marks, q.difficulty, q.tag, qu.title AS quiz_title
-                FROM questions q
-                JOIN quizzes qu ON qu.id = q.quiz_id
-                WHERE q.deleted_at IS NULL AND qu.deleted_at IS NULL AND q.difficulty = '{$tryLevel}' {$catFilter} {$placeholders}
-                ORDER BY RAND()
-                LIMIT 1
-            ");
-            $nextQ = $qStmt->fetch();
-            if ($nextQ) {
-                $nextLevel = $tryLevel;
-                break;
-            }
-        }
-
-        $nextOptions = [];
-        if ($nextQ) {
-            $optStmt = $db->prepare("SELECT id, option_text FROM options WHERE question_id = ? ORDER BY RAND()");
-            $optStmt->execute([$nextQ['id']]);
-            $nextOptions = $optStmt->fetchAll();
-        }
+        $nextQ = getOrGenerateAdaptiveQuestion($db, $categoryId, $nextLevel, $answeredIds);
 
         // Generate AI explanation if wrong
         $explanation = null;
@@ -130,14 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             'consecutive_correct' => $consecutiveCorrect,
             'consecutive_wrong'   => $consecutiveWrong,
             'answered_ids'        => $answeredIds,
-            'next_question'       => $nextQ ? [
-                'id'            => $nextQ['id'],
-                'question_text' => $nextQ['question_text'],
-                'marks'         => $nextQ['marks'],
-                'difficulty'    => $nextQ['difficulty'],
-                'tag'           => $nextQ['tag'],
-                'options'       => $nextOptions
-            ] : null
+            'next_question'       => $nextQ
         ]);
         exit;
     }
@@ -145,35 +203,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     // Start session / fetch initial question
     if ($action === 'start_session') {
         $categoryId = (int)$_POST['category_id'];
-        $startLevel = 'medium';
-
-        $catFilter = $categoryId > 0 ? " AND qu.category_id = {$categoryId}" : "";
-        $qStmt = $db->query("
-            SELECT q.id, q.question_text, q.marks, q.difficulty, q.tag, qu.title AS quiz_title
-            FROM questions q
-            JOIN quizzes qu ON qu.id = q.quiz_id
-            WHERE q.deleted_at IS NULL AND qu.deleted_at IS NULL {$catFilter}
-            ORDER BY CASE WHEN q.difficulty = 'medium' THEN 1 WHEN q.difficulty = 'easy' THEN 2 ELSE 3 END, RAND()
-            LIMIT 1
-        ");
-        $firstQ = $qStmt->fetch();
-
-        $options = [];
-        if ($firstQ) {
-            $optStmt = $db->prepare("SELECT id, option_text FROM options WHERE question_id = ? ORDER BY RAND()");
-            $optStmt->execute([$firstQ['id']]);
-            $options = $optStmt->fetchAll();
-        }
+        $firstQ = getOrGenerateAdaptiveQuestion($db, $categoryId, 'medium', []);
 
         echo json_encode([
-            'question' => $firstQ ? [
-                'id'            => $firstQ['id'],
-                'question_text' => $firstQ['question_text'],
-                'marks'         => $firstQ['marks'],
-                'difficulty'    => $firstQ['difficulty'],
-                'tag'           => $firstQ['tag'],
-                'options'       => $options
-            ] : null
+            'question' => $firstQ
         ]);
         exit;
     }
