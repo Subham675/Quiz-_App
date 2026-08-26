@@ -4,23 +4,30 @@ use PHPMailer\PHPMailer\Exception;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-if (empty($_ENV['SMTP_USER']) && file_exists(__DIR__ . '/../.env')) {
-    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
-    $dotenv->safeLoad();
+if (file_exists(__DIR__ . '/../.env')) {
+    $envVars = @parse_ini_file(__DIR__ . '/../.env');
+    if ($envVars) {
+        foreach ($envVars as $k => $v) {
+            $_ENV[$k] = $v;
+            putenv("{$k}={$v}");
+        }
+    }
 }
 
 function getMailer(): PHPMailer {
     $mail = new PHPMailer(true);
     $mail->isSMTP();
-    $mail->Host        = $_ENV['MAIL_HOST'] ?? $_ENV['SMTP_HOST'] ?? 'smtp.gmail.com';
+    $mail->Host        = $_ENV['SMTP_HOST'] ?? 'smtp.gmail.com';
     $mail->SMTPAuth    = true;
-    $mail->Username    = $_ENV['MAIL_USER'] ?? $_ENV['SMTP_USER'] ?? '';
-    $mail->Password    = $_ENV['MAIL_PASS'] ?? $_ENV['SMTP_PASS'] ?? '';
+    $mail->Username    = $_ENV['SMTP_USER'] ?? '';
+    $mail->Password    = $_ENV['SMTP_PASS'] ?? '';
     $mail->SMTPSecure  = PHPMailer::ENCRYPTION_STARTTLS;
-    $mail->Port        = (int)($_ENV['MAIL_PORT'] ?? $_ENV['SMTP_PORT'] ?? 587);
-    $mail->Timeout     = 5;
+    $mail->Port        = (int)($_ENV['SMTP_PORT'] ?? 587);
+    $mail->Timeout     = 10;
     $mail->SMTPKeepAlive = false;
-    $mail->setFrom($_ENV['MAIL_FROM'] ?? $_ENV['SMTP_USER'] ?? 'noreply@quizapp.com', $_ENV['MAIL_FROM_NAME'] ?? $_ENV['SMTP_FROM_NAME'] ?? 'QuizApp');
+    $fromEmail         = !empty($_ENV['MAIL_FROM']) ? $_ENV['MAIL_FROM'] : (!empty($_ENV['SMTP_USER']) ? $_ENV['SMTP_USER'] : 'noreply@quizapp.com');
+    $fromName          = !empty($_ENV['SMTP_FROM_NAME']) ? $_ENV['SMTP_FROM_NAME'] : 'QuizApp';
+    $mail->setFrom($fromEmail, $fromName);
     $mail->isHTML(true);
     return $mail;
 }

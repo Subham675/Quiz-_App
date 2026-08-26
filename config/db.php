@@ -1,8 +1,15 @@
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
 
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../');
-$dotenv->load();
+if (file_exists(__DIR__ . '/../.env')) {
+    $envVars = @parse_ini_file(__DIR__ . '/../.env');
+    if ($envVars) {
+        foreach ($envVars as $k => $v) {
+            $_ENV[$k] = $v;
+            putenv("{$k}={$v}");
+        }
+    }
+}
 
 // Base path the app is served from, derived from APP_URL in .env.
 // Defaults to '' (root) if APP_URL has no path component, e.g. https://example.com
