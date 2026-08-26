@@ -479,7 +479,7 @@ require_once __DIR__ . '/../includes/header.php';
 
         let msg = '';
         if (pct >= 80) msg = 'Outstanding performance! You mastered complex questions with high accuracy.';
-        elseif (pct >= 50) msg = 'Great job! You adapted well through intermediate questions.';
+        else if (pct >= 50) msg = 'Great job! You adapted well through intermediate questions.';
         else msg = 'Good practice session! Review wrong answers and try again to level up.';
         document.getElementById('finalMasteryText').textContent = msg;
     }
