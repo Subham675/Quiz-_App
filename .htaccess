@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /Quiz_app/
+
+    # Allow direct access to physical files (CSS, JS, images, PDF)
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^ - [L]
+
+    # Allow direct access to physical directories
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Route all other URLs to index.php
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>

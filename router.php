@@ -10,21 +10,9 @@ if (preg_match('#^/quiz[-_]?app(/.*)?$#i', $uri, $m)) {
 
 $file = __DIR__ . $uri;
 
-// Directory access defaults to index.php
-if (is_dir($file)) {
-    $file = rtrim($file, '/') . '/index.php';
-}
-
-// If exact file exists (like .php, .css, .js, images)
+// If static asset exists (CSS, JS, images, fonts, PDF)
 if (file_exists($file) && !is_dir($file)) {
     $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-    if ($ext === 'php') {
-        chdir(dirname($file));
-        require $file;
-        exit;
-    }
-
-    // Static asset MIME types
     $mimes = [
         'css'   => 'text/css',
         'js'    => 'application/javascript',
@@ -41,19 +29,12 @@ if (file_exists($file) && !is_dir($file)) {
         'ttf'   => 'font/ttf',
     ];
 
-    $mime = $mimes[$ext] ?? 'application/octet-stream';
-    header("Content-Type: {$mime}");
-    readfile($file);
-    exit;
+    if (isset($mimes[$ext])) {
+        header("Content-Type: {$mimes[$ext]}");
+        readfile($file);
+        exit;
+    }
 }
 
-// If extension was omitted e.g. /public/login -> /public/login.php
-if (file_exists($file . '.php')) {
-    chdir(dirname($file . '.php'));
-    require $file . '.php';
-    exit;
-}
-
-http_response_code(404);
-echo "404 Not Found: " . htmlspecialchars($uri);
-exit;
+// Forward everything to Front Controller
+require __DIR__ . '/index.php';

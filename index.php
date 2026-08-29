@@ -1,13 +1,14 @@
 <?php
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/config/mailer.php';
 require_once __DIR__ . '/includes/auth.php';
 
-if (isLoggedIn()) {
-    if (isAdmin()) {
-        header('Location: /Quiz_app/admin/index.php');
-    } else {
-        header('Location: /Quiz_app/public/dashboard.php');
-    }
-} else {
-    header('Location: /Quiz_app/public/login.php');
-}
-exit;
+startSession();
+
+// Load MVC Web Routes
+require_once __DIR__ . '/routes/web.php';
+
+// Dispatch Request
+$request = new \App\Core\Request();
+\App\Core\Router::dispatch($request);
