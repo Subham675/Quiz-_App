@@ -32,14 +32,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("UPDATE users SET reset_token = ?, reset_expires = ? WHERE id = ?")
                    ->execute([$token, $expires, $user['id']]);
 
-                $resetLink = rtrim($_ENV['APP_URL'] ?? '', '/') . "/public/reset-password.php?token={$token}";
-                $body = "Hi {$user['name']},\n\nClick the link below to reset your password (valid for 1 hour):\n\n{$resetLink}\n\nIf you didn't request this, ignore this email.";
+                $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+                $baseUrl = !empty($_ENV['APP_URL']) ? rtrim($_ENV['APP_URL'], '/') : "{$scheme}://{$host}" . BASE_PATH;
+                $resetLink = $baseUrl . '/public/reset-password.php?token=' . urlencode($token);
+
+                $htmlBody = "
+                    <div style='font-family:sans-serif;max-width:480px;margin:auto;padding:24px;border:1px solid #e2e8f0;border-radius:12px'>
+                        <h2 style='color:#111827;margin-top:0'>Reset your password</h2>
+                        <p style='color:#4b5563;font-size:15px'>Hi <strong>" . htmlspecialchars($user['name']) . "</strong>,</p>
+                        <p style='color:#4b5563;font-size:14px'>We received a request to reset your QuizApp password. Click the button below to choose a new password (valid for 1 hour):</p>
+                        <div style='text-align:center;margin:28px 0'>
+                            <a href='{$resetLink}' style='background:#185FA5;color:#ffffff;padding:12px 28px;text-decoration:none;border-radius:6px;font-weight:600;display:inline-block'>Reset Password</a>
+                        </div>
+                        <p style='color:#6b7280;font-size:13px'>Or copy and paste this link in your browser:<br><a href='{$resetLink}' style='color:#185FA5;word-break:break-all'>{$resetLink}</a></p>
+                        <hr style='border:none;border-top:1px solid #e2e8f0;margin:20px 0'>
+                        <p style='color:#9ca3af;font-size:12px;margin-bottom:0'>If you did not request a password reset, you can safely ignore this email.</p>
+                    </div>
+                ";
 
                 try {
                     $mailer = getMailer();
                     $mailer->addAddress($email, $user['name']);
                     $mailer->Subject = 'Reset your QuizApp password';
-                    $mailer->Body    = $body;
+                    $mailer->Body    = $htmlBody;
+                    $mailer->AltBody = "Hi {$user['name']},\n\nClick the link below to reset your password (valid for 1 hour):\n\n{$resetLink}\n\nIf you didn't request this, ignore this email.";
                     $mailer->send();
                 } catch (Exception $e) {
                     error_log('Reset email failed: ' . $e->getMessage());
@@ -48,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Always show success (don't reveal if email exists)
             $rl->recordFailure('forgot', 5, 10, 15);
-            $success = 'If that email is registered, a reset link has been sent.';
+            $success = 'If that email is registered, a password reset link has been sent to your inbox.';
         }
     }
 }
@@ -62,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <!-- Bootstrap 5.3 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/Quiz_app/assets/css/style.css?v=5">
+    <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css?v=5">
 </head>
 <body>
 <div class="auth-wrapper">
@@ -87,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </form>
         <?php endif; ?>
 
-        <p class="auth-divider"><a href="login.php" class="text-decoration-none">Back to login</a></p>
+        <p class="auth-divider"><a href="<?= BASE_PATH ?>/public/login.php" class="text-decoration-none">Back to login</a></p>
     </div>
 </div>
 <!-- Bootstrap 5.3 JS -->

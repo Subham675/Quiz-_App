@@ -13,6 +13,8 @@ function runMigrations(PDO $db): void
             'current_streak'   => 'INT DEFAULT 0',
             'longest_streak'   => 'INT DEFAULT 0',
             'last_active_date' => 'DATE DEFAULT NULL',
+            'reset_token'      => 'VARCHAR(64) DEFAULT NULL',
+            'reset_expires'    => 'DATETIME DEFAULT NULL',
             'is_deleted'       => 'TINYINT(1) DEFAULT 0',
             'deleted_at'       => 'DATETIME DEFAULT NULL',
         ],
