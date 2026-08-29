@@ -83,10 +83,16 @@ function isFakeEmail(string $email): bool {
 
     // Known disposable/temp-mail providers
     static $disposable = [
-        'mailinator.com', 'guerrillamail.com', '10minutemail.com', 'tempmail.com',
-        'temp-mail.org', 'throwawaymail.com', 'yopmail.com', 'trashmail.com',
-        'getnada.com', 'fakeinbox.com', 'sharklasers.com', 'maildrop.cc',
-        'dispostable.com', 'mintemail.com', 'mailnesia.com',
+        'mailinator.com', 'guerrillamail.com', 'guerrillamail.net', 'guerrillamail.org',
+        '10minutemail.com', '10minutemail.net', 'tempmail.com', 'temp-mail.org', 'temp-mail.io',
+        'throwawaymail.com', 'yopmail.com', 'yopmail.fr', 'yopmail.net', 'trashmail.com',
+        'trashmail.net', 'getnada.com', 'fakeinbox.com', 'sharklasers.com', 'maildrop.cc',
+        'dispostable.com', 'mintemail.com', 'mailnesia.com', 'crazymailing.com',
+        'mohmal.com', 'inboxkitten.com', 'burnermail.io', 'mytemp.email', 'dropmail.me',
+        'emailondeck.com', 'generator.email', 'tempail.com', 'fakemailgenerator.com',
+        'getairmail.com', 'zillamail.com', 'armyspy.com', 'cuvox.de', 'dayrep.com',
+        'einrot.com', 'fleckens.hu', 'gustr.com', 'jourrapide.com', 'rhyta.com',
+        'superrito.com', 'teleworm.us', 'tinypaste.com'
     ];
     return in_array($domain, $disposable, true);
 }
