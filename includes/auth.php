@@ -76,25 +76,37 @@ function isFakeEmail(string $email): bool {
     if (count($parts) !== 2) return true;
     $domain = strtolower(trim($parts[1]));
 
-    // Domain has no mail server (and no fallback A/AAAA record) configured at all
+    // 1. Live DNS MX Record Check (ensures domain exists and can receive mail)
     if (!checkdnsrr($domain, 'MX') && !checkdnsrr($domain, 'A') && !checkdnsrr($domain, 'AAAA')) {
         return true;
     }
 
-    // Known disposable/temp-mail providers
-    static $disposable = [
-        'mailinator.com', 'guerrillamail.com', 'guerrillamail.net', 'guerrillamail.org',
-        '10minutemail.com', '10minutemail.net', 'tempmail.com', 'temp-mail.org', 'temp-mail.io',
-        'throwawaymail.com', 'yopmail.com', 'yopmail.fr', 'yopmail.net', 'trashmail.com',
-        'trashmail.net', 'getnada.com', 'fakeinbox.com', 'sharklasers.com', 'maildrop.cc',
-        'dispostable.com', 'mintemail.com', 'mailnesia.com', 'crazymailing.com',
-        'mohmal.com', 'inboxkitten.com', 'burnermail.io', 'mytemp.email', 'dropmail.me',
-        'emailondeck.com', 'generator.email', 'tempail.com', 'fakemailgenerator.com',
-        'getairmail.com', 'zillamail.com', 'armyspy.com', 'cuvox.de', 'dayrep.com',
-        'einrot.com', 'fleckens.hu', 'gustr.com', 'jourrapide.com', 'rhyta.com',
-        'superrito.com', 'teleworm.us', 'tinypaste.com'
-    ];
-    return in_array($domain, $disposable, true);
+    // 2. Free Open Email Validator API (live check across 30,000+ disposable mail providers)
+    if (function_exists('curl_init')) {
+        try {
+            $ch = curl_init("https://open.kickbox.com/v1/disposable/" . urlencode($domain));
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 2,
+                CURLOPT_CONNECTTIMEOUT => 2,
+                CURLOPT_SSL_VERIFYPEER => false,
+            ]);
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode === 200 && !empty($response)) {
+                $data = json_decode($response, true);
+                if (isset($data['disposable']) && $data['disposable'] === true) {
+                    return true;
+                }
+            }
+        } catch (Exception $e) {
+            // Fail open if validator service is unreachable
+        }
+    }
+
+    return false;
 }
 
 /**
