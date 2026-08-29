@@ -51,7 +51,11 @@
       - Daily Quiz (streak-based challenges)
       - Weak Topics (targets concepts under 70% accuracy)
       - Adaptive Quiz (adjusts difficulty dynamically)
-      - AI Practice (Google Gemini powered question generation)
+      - AI Practice (Google Gemini powered with Search Autocomplete & Suggestions)
+  * Search Autocomplete & Suggestions (Typeahead):
+      - Instant topic search with real-time substring matching
+      - Type "pho" -> suggests "Photography", "Photosynthesis", etc.
+      - Keyboard navigation (Arrow keys + Enter) & quick topic chips
   * Profile management with password change
   * Forgot password with email reset link
 
