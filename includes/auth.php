@@ -148,6 +148,7 @@ function isDeliverableEmail(string $email): bool
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT        => 4,
         CURLOPT_CONNECTTIMEOUT => 3,
+        CURLOPT_SSL_VERIFYPEER => false,
     ]);
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -164,7 +165,11 @@ function isDeliverableEmail(string $email): bool
         return true; // fail open on a malformed/unexpected response
     }
 
-    if (($data['email_deliverability']['status'] ?? '') === 'undeliverable') {
+    $deliv = $data['email_deliverability'] ?? [];
+    if (($deliv['status'] ?? '') === 'undeliverable' || ($deliv['status_detail'] ?? '') === 'invalid_mailbox') {
+        return false;
+    }
+    if (isset($deliv['is_smtp_valid']) && $deliv['is_smtp_valid'] === false && ($deliv['is_mx_valid'] ?? false) === true) {
         return false;
     }
     if (($data['email_quality']['is_disposable'] ?? false) === true) {

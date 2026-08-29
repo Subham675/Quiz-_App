@@ -116,8 +116,8 @@ class AuthController extends Controller
             $this->redirect('/register');
         }
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || isFakeEmail($email)) {
-            $_SESSION['reg_error'] = 'Invalid email address or fake email domain.';
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || isFakeEmail($email) || !isDeliverableEmail($email)) {
+            $_SESSION['reg_error'] = 'Invalid email address or undeliverable email mailbox.';
             $this->redirect('/register');
         }
 
