@@ -17,11 +17,12 @@ A modern, production-grade **Online Quiz & Learning Management System** built wi
 3. [Complete Directory & File Map](#-3-complete-directory--file-map)
 4. [Key Modules & Standout Features](#-4-key-modules--standout-features)
 5. [Security & Validation Architecture](#-5-security--validation-architecture)
-6. [Database Schema & Entity Relationships](#-6-database-schema--entity-relationships)
-7. [Installation & Setup Guide](#-7-installation--setup-guide)
-8. [Environment Configuration (.env)](#-8-environment-configuration-env)
-9. [RESTful Clean Routes Reference](#-9-restful-clean-routes-reference)
-10. [Examiner & Viva Voce Q&A](#-10-examiner--viva-voce-qa)
+6. [Database Connection Architecture & File Locations](#-6-database-connection-architecture--file-locations)
+7. [Database Schema & Entity Relationships](#-7-database-schema--entity-relationships)
+8. [Installation & Setup Guide](#-8-installation--setup-guide)
+9. [Environment Configuration (.env)](#-9-environment-configuration-env)
+10. [RESTful Clean Routes Reference](#-10-restful-clean-routes-reference)
+11. [Examiner & Viva Voce Q&A](#-11-examiner--viva-voce-qa)
 
 ---
 
@@ -189,7 +190,54 @@ Quiz-_App/
 
 ---
 
-## 🗄️ 6. Database Schema & Entity Relationships
+## 🗄️ 6. Database Connection Architecture & File Locations
+
+### 📍 File Locations on Your PC
+
+| Component | File Path | Role & Purpose |
+|---|---|---|
+| **Database Connection & PDO Singleton** | `config/db.php` | Reads `.env`, creates PDO instance, configures error handling, and runs auto-migrations. |
+| **Database Credentials** | `.env` | Holds database host (`127.0.0.1`), database name (`quiz_app`), user (`root`), and password. |
+| **MVC Base Model (Query Layer)** | `app/Core/Model.php` | Provides query helpers: `fetchAll()`, `fetchOne()`, `query()`, `lastInsertId()`. |
+| **Database Schema SQL** | `database/quiz_app.sql` | Complete schema DDL, table structures, and seed data. |
+| **Auto-Migration Engine** | `config/migrate.php` | Automatically checks and creates missing tables/columns on application startup. |
+
+### 🔌 How the Database Connection Works (PDO Singleton)
+
+In `config/db.php`, the connection is established using the **PDO Singleton Pattern**:
+
+```php
+function getDB(): PDO {
+    static $pdo = null;
+    if ($pdo === null) {
+        $dsn = "mysql:host={$_ENV['DB_HOST']};dbname={$_ENV['DB_NAME']};charset=utf8mb4";
+        try {
+            $pdo = new PDO($dsn, $_ENV['DB_USER'], $_ENV['DB_PASS'], [
+                PDO::ATTR_ERRMODE                  => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE       => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES         => false,
+                PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
+            ]);
+            runMigrations($pdo);
+        } catch (PDOException $e) {
+            error_log('DB connection failed: ' . $e->getMessage());
+            http_response_code(500);
+            die('Service temporarily unavailable. Please try again later.');
+        }
+    }
+    return $pdo;
+}
+```
+
+### 💡 Key Benefits of this Database Design:
+1. **Singleton Pattern (`static $pdo`):** Opens **only one single connection** per HTTP request, preventing socket exhaustion and memory overhead.
+2. **Native Prepared Statements (`ATTR_EMULATE_PREPARES => false`):** Forces true database-level prepared statements, guaranteeing **100% immunity against SQL Injection**.
+3. **Full Unicode Support (`utf8mb4`):** Supports all international characters, mathematical notation, and emojis.
+4. **Exception Handling (`ERRMODE_EXCEPTION`):** Converts database errors into catchable exceptions rather than exposing raw database errors to end users.
+
+---
+
+## 🗄️ 7. Database Schema & Entity Relationships
 
 ```
  users (id, name, email, password, role, is_verified, is_banned)
