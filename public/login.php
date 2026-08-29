@@ -25,6 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please enter both email and password.';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'Invalid email address format.';
+        } elseif (isFakeEmail($email)) {
+            $error = 'Invalid email domain. The domain does not exist, cannot receive emails, or is a temporary disposable email.';
         } else {
             // Secure parameterized query - 100% immune to SQL injection
             $stmt = $db->prepare("
@@ -36,22 +38,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$email]);
             $user = $stmt->fetch();
 
-            if ($user && password_verify($password, $user['password'])) {
-                if (!$user['is_verified'])  { 
-                    $error = 'Please verify your email first before logging in.'; 
-                } elseif (!empty($user['is_banned'])) { 
-                    $error = 'Your account has been suspended. Please contact support.'; 
-                } else { 
-                    // Clear failed login attempts for this IP on success
-                    $rl->reset('login');
-                    loginUser($user); 
-                    header('Location: ' . BASE_PATH . '/index.php'); 
-                    exit; 
-                }
-            } else {
-                // Record failed login attempt (blocks after 5 attempts for 15 minutes)
+            if (!$user) {
                 $rl->recordFailure('login', 5, 10, 15);
-                $error = 'Invalid email or password.';
+                $error = 'No account exists with this email address. Please register first.';
+            } elseif (!password_verify($password, $user['password'])) {
+                $rl->recordFailure('login', 5, 10, 15);
+                $error = 'Incorrect password. Please check your credentials and try again.';
+            } elseif (!$user['is_verified']) {
+                $_SESSION['pending_user_id'] = $user['id'];
+                $error = 'Your email is not verified yet. <a href="verify-otp.php" class="alert-link text-decoration-underline fw-bold">Click here to enter OTP</a>';
+            } elseif (!empty($user['is_banned'])) {
+                $error = 'Your account has been suspended. Please contact the administrator.';
+            } else {
+                // Clear failed login attempts for this IP on success
+                $rl->reset('login');
+                loginUser($user); 
+                header('Location: ' . BASE_PATH . '/index.php'); 
+                exit; 
             }
         }
     }
