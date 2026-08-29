@@ -3,27 +3,47 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/db.php';
 
 startSession();
-if (isLoggedIn()) { header('Location: /Quiz_app/index.php'); exit; }
+if (isLoggedIn()) { header('Location: ' . BASE_PATH . '/index.php'); exit; }
 
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verifyCsrf();
     if (!checkRateLimit('login', 5, 60)) {
-        $error = 'Too many attempts. Please wait a minute.';
+        $error = 'Too many failed login attempts. Please wait 1 minute before trying again.';
     } else {
-        $email    = trim($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $db   = getDB();
-        $stmt = $db->prepare("SELECT * FROM users WHERE email = ? LIMIT 1");
-        $stmt->execute([$email]);
-        $user = $stmt->fetch();
-        if ($user && password_verify($password, $user['password'])) {
-            if (!$user['is_verified'])  { $error = 'Please verify your email first.'; }
-            elseif ($user['is_banned']) { $error = 'Your account has been banned.'; }
-            else { loginUser($user); header('Location: /Quiz_app/index.php'); exit; }
+        $email    = strtolower(trim($_POST['email'] ?? ''));
+        $password = (string)($_POST['password'] ?? '');
+
+        if (empty($email) || empty($password)) {
+            $error = 'Please enter both email and password.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Invalid email address format.';
         } else {
-            $error = 'Invalid email or password.';
+            $db   = getDB();
+            // Secure parameterized query - 100% immune to SQL injection
+            $stmt = $db->prepare("
+                SELECT id, name, email, password, role, is_verified, is_banned, is_deleted 
+                FROM users 
+                WHERE email = ? AND (is_deleted = 0 OR is_deleted IS NULL) 
+                LIMIT 1
+            ");
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+
+            if ($user && password_verify($password, $user['password'])) {
+                if (!$user['is_verified'])  { 
+                    $error = 'Please verify your email first before logging in.'; 
+                } elseif (!empty($user['is_banned'])) { 
+                    $error = 'Your account has been suspended. Please contact support.'; 
+                } else { 
+                    loginUser($user); 
+                    header('Location: ' . BASE_PATH . '/index.php'); 
+                    exit; 
+                }
+            } else {
+                $error = 'Invalid email or password.';
+            }
         }
     }
 }

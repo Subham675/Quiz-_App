@@ -4,21 +4,23 @@ require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/../config/mailer.php';
 
 startSession();
-if (isLoggedIn()) { header('Location: /Quiz_app/index.php'); exit; }
+if (isLoggedIn()) { header('Location: ' . BASE_PATH . '/index.php'); exit; }
 
 $error = $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verifyCsrf();
-    $name     = trim($_POST['name'] ?? '');
-    $email    = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $confirm  = $_POST['confirm'] ?? '';
+    $name     = strip_tags(trim($_POST['name'] ?? ''));
+    $email    = strtolower(trim($_POST['email'] ?? ''));
+    $password = (string)($_POST['password'] ?? '');
+    $confirm  = (string)($_POST['confirm'] ?? '');
 
     if (!$name || !$email || !$password) {
         $error = 'All fields are required.';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Invalid email address.';
+    } elseif (strlen($name) > 100) {
+        $error = 'Name must be under 100 characters.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) {
+        $error = 'Please enter a valid email address.';
     } elseif (strlen($password) < 8) {
         $error = 'Password must be at least 8 characters.';
     } elseif ($password !== $confirm) {
