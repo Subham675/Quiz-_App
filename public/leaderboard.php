@@ -41,57 +41,67 @@ foreach ($leaders as $i => $l) {
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">Leaderboard</div>
-    <div class="page-subtitle">Top performers across all quizzes</div>
+<div class="mb-4">
+    <h1 class="page-title">Leaderboard</h1>
+    <p class="page-subtitle">Top performers across all quizzes</p>
 </div>
 
-<div class="card" style="margin-bottom:16px">
-    <form method="GET" style="display:flex;gap:10px;align-items:center">
-        <select name="quiz" style="flex:1">
-            <option value="">All quizzes</option>
-            <?php foreach ($quizzes as $q): ?>
-                <option value="<?= $q['id'] ?>" <?= $quizId === (int)$q['id'] ? 'selected' : '' ?>><?= htmlspecialchars($q['title']) ?></option>
-            <?php endforeach; ?>
-        </select>
-        <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-        <?php if ($quizId): ?><a href="leaderboard.php" class="btn btn-outline btn-sm">Clear</a><?php endif; ?>
-    </form>
+<div class="card mb-3">
+    <div class="card-body p-3">
+        <form method="GET" class="d-flex gap-2 align-items-center">
+            <select name="quiz" class="form-select form-select-sm">
+                <option value="">All quizzes</option>
+                <?php foreach ($quizzes as $q): ?>
+                    <option value="<?= $q['id'] ?>" <?= $quizId === (int)$q['id'] ? 'selected' : '' ?>><?= htmlspecialchars($q['title']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm text-nowrap">Filter</button>
+            <?php if ($quizId): ?><a href="leaderboard.php" class="btn btn-outline-secondary btn-sm text-nowrap">Clear</a><?php endif; ?>
+        </form>
+    </div>
 </div>
 
 <?php if ($myRank): ?>
-<div class="alert alert-success" style="margin-bottom:16px">
-    Your rank: <strong>#<?= $myRank ?></strong> out of <?= count($leaders) ?> students
+<div class="alert alert-success d-flex align-items-center mb-3">
+    <i class="bi bi-trophy-fill me-2 fs-5"></i>
+    <div>Your rank: <strong>#<?= $myRank ?></strong> out of <?= count($leaders) ?> students</div>
 </div>
 <?php endif; ?>
 
 <div class="card">
-    <?php if (empty($leaders)): ?>
-        <p style="color:var(--muted)">No attempts yet. Be the first!</p>
-    <?php else: ?>
-    <div class="table-wrap">
-    <table class="table">
-        <thead>
-            <tr><th>#</th><th>Student</th><th>Avg Score</th><th>Best Score</th><th>Passes</th><th>Certs</th></tr>
-        </thead>
-        <tbody>
-        <?php foreach ($leaders as $i => $l): 
-            $isMe = $l['user_id'] == $userId;
-            $medal = match($i) { 0 => '🥇', 1 => '🥈', 2 => '🥉', default => '' };
-        ?>
-        <tr style="<?= $isMe ? 'background:var(--accent-light, rgba(24,95,165,.06));font-weight:600' : '' ?>">
-            <td><?= $medal ?: ($i + 1) ?></td>
-            <td><?= htmlspecialchars($l['name']) ?> <?= $isMe ? '<span class="badge badge-info" style="font-size:10px">You</span>' : '' ?></td>
-            <td><span class="badge <?= $l['avg_score'] >= 60 ? 'badge-success' : 'badge-warning' ?>"><?= $l['avg_score'] ?>%</span></td>
-            <td><?= round($l['best_score']) ?>%</td>
-            <td><?= $l['passes'] ?></td>
-            <td><?= $l['certs'] ?> 🏆</td>
-        </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
+    <div class="card-body">
+        <?php if (empty($leaders)): ?>
+            <p class="text-muted small mb-0">No attempts yet. Be the first!</p>
+        <?php else: ?>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr><th>#</th><th>Student</th><th>Avg Score</th><th>Best Score</th><th>Passes</th><th>Certs</th></tr>
+                </thead>
+                <tbody>
+                <?php foreach ($leaders as $i => $l): 
+                    $isMe = $l['user_id'] == $userId;
+                    $medal = match($i) { 0 => '🥇', 1 => '🥈', 2 => '🥉', default => '' };
+                ?>
+                <tr class="<?= $isMe ? 'table-primary fw-bold' : '' ?>">
+                    <td><?= $medal ?: ($i + 1) ?></td>
+                    <td>
+                        <?= htmlspecialchars($l['name']) ?> 
+                        <?php if ($isMe): ?>
+                            <span class="badge bg-primary ms-1">You</span>
+                        <?php endif; ?>
+                    </td>
+                    <td><span class="badge rounded-pill <?= $l['avg_score'] >= 60 ? 'bg-success' : 'bg-warning text-dark' ?>"><?= $l['avg_score'] ?>%</span></td>
+                    <td><?= round($l['best_score']) ?>%</td>
+                    <td><?= $l['passes'] ?></td>
+                    <td><?= $l['certs'] ?> 🏆</td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
     </div>
-    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

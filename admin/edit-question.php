@@ -101,47 +101,51 @@ foreach ($options as $i => $o) {
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">Edit Question</div>
-    <div class="page-subtitle">
-        <a href="manage-questions.php?quiz_id=<?= $quizId ?>">&larr; Back to <?= htmlspecialchars($question['quiz_title']) ?></a>
-    </div>
+<div class="mb-4">
+    <h1 class="page-title">Edit Question</h1>
+    <p class="page-subtitle">
+        <a href="manage-questions.php?quiz_id=<?= $quizId ?>" class="text-decoration-none">&larr; Back to <?= htmlspecialchars($question['quiz_title']) ?></a>
+    </p>
 </div>
 
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
 <div class="card" style="max-width:560px">
-    <form method="POST">
-        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-        <input type="hidden" name="question_id" value="<?= $questionId ?>">
+    <div class="card-body p-4">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+            <input type="hidden" name="question_id" value="<?= $questionId ?>">
 
-        <div class="form-group">
-            <label>Question text</label>
-            <textarea name="question_text" rows="2" required><?= htmlspecialchars($question['question_text']) ?></textarea>
-        </div>
-
-        <div class="form-group">
-            <label>Marks</label>
-            <input type="number" name="marks" min="1" value="<?= (int)$question['marks'] ?>" style="max-width:100px">
-        </div>
-
-        <div class="form-group">
-            <label>Options (mark the correct one)</label>
-            <?php foreach ($options as $i => $o): ?>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                <input type="radio" name="correct_index" value="<?= $i ?>" <?= $i === $correctIdx ? 'checked' : '' ?> required style="width:auto;flex-shrink:0">
-                <input type="hidden" name="option_id[]" value="<?= htmlspecialchars((string)$o['id']) ?>">
-                <input type="text" name="options[]" placeholder="Option <?= $i + 1 ?>" value="<?= htmlspecialchars($o['option_text']) ?>" <?= $i < 2 ? 'required' : '' ?>>
+            <div class="mb-3">
+                <label class="form-label small fw-medium">Question text</label>
+                <textarea class="form-control" name="question_text" rows="3" required><?= htmlspecialchars($question['question_text']) ?></textarea>
             </div>
-            <?php endforeach; ?>
-            <div class="form-hint">Clearing an option's text will remove it (min. 2 required).</div>
-        </div>
 
-        <button type="submit" name="update_question" class="btn btn-primary" style="width:100%;justify-content:center">
-            Save changes
-        </button>
-    </form>
+            <div class="mb-3">
+                <label class="form-label small fw-medium">Marks</label>
+                <input type="number" class="form-control" name="marks" min="1" value="<?= (int)$question['marks'] ?>" style="max-width:100px">
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small fw-medium">Options (mark the correct one)</label>
+                <?php foreach ($options as $i => $o): ?>
+                <div class="input-group mb-2">
+                    <div class="input-group-text bg-white">
+                        <input class="form-check-input mt-0" type="radio" name="correct_index" value="<?= $i ?>" <?= $i === $correctIdx ? 'checked' : '' ?> required>
+                    </div>
+                    <input type="hidden" name="option_id[]" value="<?= htmlspecialchars((string)$o['id']) ?>">
+                    <input type="text" class="form-control" name="options[]" placeholder="Option <?= $i + 1 ?>" value="<?= htmlspecialchars($o['option_text']) ?>" <?= $i < 2 ? 'required' : '' ?>>
+                </div>
+                <?php endforeach; ?>
+                <div class="form-text small">Clearing an option's text will remove it (min. 2 required).</div>
+            </div>
+
+            <button type="submit" name="update_question" class="btn btn-primary w-100 mt-3">
+                Save changes
+            </button>
+        </form>
+    </div>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

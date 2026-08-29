@@ -52,18 +52,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify OTP — QuizApp</title>
-    <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css">
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?= BASE_PATH ?>/assets/css/style.css?v=5">
     <style>
         .otp-inputs { display:flex; gap:10px; justify-content:center; margin:20px 0; }
         .otp-inputs input {
             width:48px; height:56px; text-align:center;
             font-size:22px; font-weight:600;
-            border:1px solid var(--border);
-            border-radius:var(--radius-md);
-            background:var(--surface);
-            color:var(--text);
+            border:1px solid #ced4da;
+            border-radius:8px;
+            background:#fff;
+            color:#212529;
         }
-        .otp-inputs input:focus { border-color:var(--accent); outline:none; box-shadow:0 0 0 3px rgba(24,95,165,.1); }
+        .otp-inputs input:focus { border-color:#185FA5; outline:none; box-shadow:0 0 0 3px rgba(24,95,165,.15); }
 
         .timer-wrap { text-align:center; margin-bottom:16px; }
         .timer-circle {
@@ -78,13 +81,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         .timer-text { font-size:18px; font-weight:700; color:#111318; position:relative; z-index:1; }
         .timer-label { font-size:12px; color:#6B7280; }
-        .timer-wrap.expired .timer-text { color:#E24B4A; }
+        .timer-wrap.expired .timer-text { color:#dc3545; }
     </style>
 </head>
 <body>
 <div class="auth-wrapper">
     <div class="auth-card">
-        <div class="auth-logo">QuizApp</div>
+        <div class="auth-logo text-center">QuizApp</div>
+        <p class="text-center text-muted small mb-3">Please enter the 6-digit verification code</p>
         <?php if ($error): ?>
             <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
         <?php endif; ?>
@@ -102,23 +106,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <?php endif; ?>
 
-                <form method="POST" id="otp-form">
+        <form method="POST" id="otp-form">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
             <div class="otp-inputs">
                 <?php for ($i = 0; $i < 6; $i++): ?>
                 <input type="text" name="otp[]" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
                 <?php endfor; ?>
             </div>
-            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">
+            <button type="submit" class="btn btn-primary w-100">
                 Verify OTP
             </button>
         </form>
 
-        <p style="text-align:center;margin-top:16px;font-size:13px;color:var(--muted)">
-            Didn't receive it? <a href="register.php">Try again</a>
+        <p class="text-center mt-3 small text-muted">
+            Didn't receive it? <a href="register.php" class="text-decoration-none">Try again</a>
         </p>
     </div>
 </div>
+<!-- Bootstrap 5.3 JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const inputs = document.querySelectorAll('.otp-inputs input');
 inputs.forEach((el, i) => {
@@ -150,8 +156,8 @@ inputs.forEach((el, i) => {
         if (timerWrap) timerWrap.classList.add('expired');
         if (timerText) timerText.textContent = '0:00';
         if (timerLabel) timerLabel.textContent = 'OTP expired — register again';
-        if (timerCircle) timerCircle.style.background = 'conic-gradient(#E24B4A 360deg, #E24B4A 0deg)';
-        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'OTP Expired'; submitBtn.style.opacity = '0.5'; }
+        if (timerCircle) timerCircle.style.background = 'conic-gradient(#dc3545 360deg, #dc3545 0deg)';
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'OTP Expired'; submitBtn.classList.add('opacity-50'); }
         inputs.forEach(function(i){ i.disabled = true; });
     }
 
@@ -162,7 +168,7 @@ inputs.forEach((el, i) => {
         if (secondsLeft <= 0) { clearInterval(interval); expired(); return; }
         if (timerText) timerText.textContent = fmt(secondsLeft);
         var deg = Math.round((secondsLeft/60)*360);
-        var color = secondsLeft > 20 ? '#185FA5' : '#E24B4A';
+        var color = secondsLeft > 20 ? '#185FA5' : '#dc3545';
         if (timerCircle) timerCircle.style.background = 'conic-gradient(' + color + ' ' + deg + 'deg, #E4E6EA 0deg)';
         if (secondsLeft <= 20 && timerLabel) timerLabel.textContent = 'Hurry! OTP expires soon';
     }, 1000);

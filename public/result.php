@@ -61,63 +61,67 @@ require_once __DIR__ . '/../includes/header.php';
 
 <div class="quiz-wrapper">
     <?php if (isset($_GET['timeout'])): ?>
-        <div class="alert alert-warning">⏱️ <strong>Time Expired!</strong> The quiz reached the server time limit and was automatically submitted.</div>
+        <div class="alert alert-warning mb-4">⏱️ <strong>Time Expired!</strong> The quiz reached the server time limit and was automatically submitted.</div>
     <?php elseif (isset($_GET['already'])): ?>
-        <div class="alert alert-warning">You've already completed this quiz. Each quiz can only be attempted once — here's your result from your first attempt.</div>
+        <div class="alert alert-warning mb-4">You've already completed this quiz. Each quiz can only be attempted once — here's your result from your first attempt.</div>
     <?php endif; ?>
 
-    <div class="card" style="text-align:center;padding:36px">
-        <div class="page-subtitle"><?= htmlspecialchars($attempt['quiz_title']) ?></div>
-        <div class="result-score <?= $passed ? 'result-passed' : 'result-failed' ?>"><?= $pct ?>%</div>
-        <span class="badge <?= $passed ? 'badge-success' : 'badge-danger' ?>">
-            <?= $passed ? '🎉 Passed' : '❌ Not Passed' ?>
-        </span>
+    <div class="card mb-4 text-center">
+        <div class="card-body p-4 p-md-5">
+            <p class="text-muted small mb-1"><?= htmlspecialchars($attempt['quiz_title']) ?></p>
+            <div class="result-score <?= $passed ? 'result-passed' : 'result-failed' ?> display-3 fw-bold mb-2"><?= $pct ?>%</div>
+            <div>
+                <span class="badge rounded-pill <?= $passed ? 'bg-success' : 'bg-danger' ?> px-3 py-2 fs-6">
+                    <?= $passed ? '🎉 Passed' : '❌ Not Passed' ?>
+                </span>
+            </div>
 
-        <p style="margin-top:14px;color:var(--muted);font-size:13.5px">
-            Score: <?= $attempt['score'] ?> / <?= $attempt['total_marks'] ?> marks
-            · Time taken: <?= gmdate('i:s', $attempt['time_taken_seconds']) ?>
-        </p>
+            <p class="text-muted small mt-3 mb-3">
+                Score: <strong><?= $attempt['score'] ?> / <?= $attempt['total_marks'] ?></strong> marks
+                · Time taken: <strong><?= gmdate('i:s', $attempt['time_taken_seconds']) ?></strong>
+            </p>
 
-        <!-- Score breakdown -->
-        <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:14px">
-            <div style="background:var(--success-bg,rgba(34,197,94,.1));border-radius:8px;padding:8px 18px;font-size:13px">
-                ✅ Correct: <strong><?= $correctCount ?></strong>
+            <!-- Score breakdown -->
+            <div class="d-flex gap-2 justify-content-center flex-wrap my-3">
+                <div class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-2 fw-medium">
+                    ✅ Correct: <strong><?= $correctCount ?></strong>
+                </div>
+                <div class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3 py-2 fw-medium">
+                    ❌ Wrong: <strong><?= $wrongCount ?></strong>
+                </div>
+                <div class="badge bg-light text-dark border px-3 py-2 fw-medium">
+                    ⏭️ Skipped: <strong><?= $skippedCount ?></strong>
+                </div>
+                <?php if ($negativeMarking > 0): ?>
+                <div class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3 py-2 fw-medium">
+                    ➖ Negative deduction: <strong>−<?= number_format($totalDeductions, 2) ?></strong>
+                </div>
+                <?php endif; ?>
             </div>
-            <div style="background:var(--danger-bg);border-radius:8px;padding:8px 18px;font-size:13px">
-                ❌ Wrong: <strong><?= $wrongCount ?></strong>
-            </div>
-            <div style="background:var(--bg);border-radius:8px;padding:8px 18px;font-size:13px;border:1px solid var(--border)">
-                ⏭️ Skipped: <strong><?= $skippedCount ?></strong>
-            </div>
-            <?php if ($negativeMarking > 0): ?>
-            <div style="background:var(--danger-bg);border-radius:8px;padding:8px 18px;font-size:13px">
-                ➖ Negative deduction: <strong>−<?= number_format($totalDeductions, 2) ?></strong>
+
+            <!-- Tab switch warning -->
+            <?php if ((int)($attempt['tab_switch_count'] ?? 0) > 0): ?>
+            <div class="alert alert-warning small py-2 px-3 my-3 d-inline-block text-start">
+                ⚠️ <strong><?= (int)$attempt['tab_switch_count'] ?> tab switch<?= $attempt['tab_switch_count'] > 1 ? 'es' : '' ?> detected</strong> during this attempt — this was logged.
             </div>
             <?php endif; ?>
-        </div>
 
-        <!-- Tab switch warning -->
-        <?php if ((int)($attempt['tab_switch_count'] ?? 0) > 0): ?>
-        <div style="margin-top:14px;padding:10px 16px;background:var(--warning-bg,rgba(234,179,8,.1));border:1px solid var(--warning,#ca8a04);border-radius:8px;font-size:13px;color:var(--warning,#ca8a04)">
-            ⚠️ <strong><?= (int)$attempt['tab_switch_count'] ?> tab switch<?= $attempt['tab_switch_count'] > 1 ? 'es' : '' ?> detected</strong> during this attempt — this was logged.
-        </div>
-        <?php endif; ?>
-
-        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px">
-            <a href="quiz-list.php" class="btn btn-outline btn-sm">Browse more quizzes</a>
-            <a href="download-result.php?attempt=<?= $attemptId ?>" class="btn btn-outline btn-sm">Download result (PDF)</a>
-            <?php if ($certificate): ?>
-                <a href="/Quiz_app/<?= htmlspecialchars($certificate['cert_path']) ?>" target="_blank" class="btn btn-sm" style="background:var(--success);color:#fff;border-color:var(--success)">
-                    🏆 Download Certificate
-                </a>
-            <?php endif; ?>
+            <div class="d-flex gap-2 justify-content-center flex-wrap mt-3">
+                <a href="quiz-list.php" class="btn btn-outline-secondary btn-sm">Browse more quizzes</a>
+                <a href="download-result.php?attempt=<?= $attemptId ?>" class="btn btn-outline-secondary btn-sm">Download result (PDF)</a>
+                <?php if ($certificate): ?>
+                    <a href="/Quiz_app/<?= htmlspecialchars($certificate['cert_path']) ?>" target="_blank" class="btn btn-success btn-sm">
+                        🏆 Download Certificate
+                    </a>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 
-    <div class="card-title" style="margin:24px 0 12px">Answer Breakdown</div>
+    <h5 class="fw-semibold mb-3">Answer Breakdown</h5>
 
     <?php foreach ($details as $i => $d): ?>
-    <div class="question-card">
+    <div class="question-card mb-3">
         <div class="question-number">Question <?= $i + 1 ?> · <?= $d['marks'] ?> mark<?= $d['marks'] > 1 ? 's' : '' ?></div>
         <div class="question-text"><?= htmlspecialchars($d['question_text']) ?></div>
 
@@ -131,12 +135,12 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <?php if (!empty($d['explanation'])): ?>
-        <div style="margin-top:10px;padding:12px 14px;background:var(--accent-bg,rgba(99,102,241,.07));border-left:3px solid var(--accent);border-radius:0 6px 6px 0;font-size:13px;line-height:1.6;color:var(--text)">
-            <strong style="font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.5px">💡 AI Explanation</strong><br>
+        <div class="p-3 bg-light border-start border-3 border-primary rounded-end small mt-2">
+            <strong class="text-primary text-uppercase d-block mb-1">💡 AI Explanation</strong>
             <?= htmlspecialchars($d['explanation']) ?>
         </div>
         <?php elseif (!$d['selected_option_id']): ?>
-        <div style="margin-top:8px;font-size:12.5px;color:var(--muted)">You skipped this question.</div>
+        <div class="small text-muted mt-2">You skipped this question.</div>
         <?php endif; ?>
         <?php endif; ?>
     </div>

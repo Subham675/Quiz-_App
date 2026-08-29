@@ -90,89 +90,115 @@ $maxTrend = max(array_values($trendDays) ?: [1]) ?: 1;
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
-        <div class="page-title">Reports</div>
-        <div class="page-subtitle">Performance overview across the platform</div>
+        <h1 class="page-title">Reports</h1>
+        <p class="page-subtitle">Performance overview across the platform</p>
     </div>
-    <a href="reports.php?export=csv" class="btn btn-outline btn-sm">⬇️ Export CSV</a>
+    <a href="reports.php?export=csv" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-download me-1"></i> Export CSV
+    </a>
 </div>
 
-<div class="stat-grid" style="margin-bottom:24px">
-    <div class="stat-card"><div class="stat-label">Total students</div><div class="stat-value"><?= $totalUsers ?></div></div>
-    <div class="stat-card"><div class="stat-label">Total quizzes</div><div class="stat-value"><?= $totalQuizzes ?></div></div>
-    <div class="stat-card"><div class="stat-label">Total attempts</div><div class="stat-value"><?= $totalAttempts ?></div></div>
-    <div class="stat-card"><div class="stat-label">Avg score</div><div class="stat-value"><?= round($avgScore) ?>%</div></div>
-    <div class="stat-card"><div class="stat-label">Pass rate</div><div class="stat-value"><?= round($passRate) ?>%</div></div>
-    <div class="stat-card"><div class="stat-label">Certificates issued</div><div class="stat-value"><?= $totalCerts ?></div></div>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Total students</div><div class="stat-value"><?= $totalUsers ?></div></div></div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Total quizzes</div><div class="stat-value"><?= $totalQuizzes ?></div></div></div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Total attempts</div><div class="stat-value"><?= $totalAttempts ?></div></div></div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Avg score</div><div class="stat-value"><?= round($avgScore) ?>%</div></div></div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Pass rate</div><div class="stat-value"><?= round($passRate) ?>%</div></div></div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Certs issued</div><div class="stat-value"><?= $totalCerts ?></div></div></div>
+    </div>
 </div>
 
-<div class="two-col" style="grid-template-columns: 1fr 1fr;margin-bottom:24px">
-    <div class="card">
-        <div class="card-title">Attempts — last 7 days</div>
-        <div style="display:flex;align-items:flex-end;gap:10px;height:140px;margin-top:16px">
-            <?php foreach ($trendDays as $date => $count):
-                $heightPct = $maxTrend > 0 ? max(4, round($count / $maxTrend * 100)) : 4;
-            ?>
-            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
-                <div style="font-size:11px;color:var(--muted)"><?= $count ?></div>
-                <div style="width:100%;background:var(--accent);border-radius:4px 4px 0 0;height:<?= $heightPct ?>%;min-height:4px"></div>
-                <div style="font-size:10.5px;color:var(--muted)"><?= date('D', strtotime($date)) ?></div>
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title fw-semibold mb-3">Attempts — last 7 days</h6>
+                <div class="d-flex align-items-end gap-2" style="height:140px">
+                    <?php foreach ($trendDays as $date => $count):
+                        $heightPct = $maxTrend > 0 ? max(4, round($count / $maxTrend * 100)) : 4;
+                    ?>
+                    <div class="flex-fill d-flex flex-column align-items-center gap-1">
+                        <small class="text-muted"><?= $count ?></small>
+                        <div class="bg-primary rounded-top" style="width:100%;height:<?= $heightPct ?>%;min-height:4px"></div>
+                        <small class="text-muted" style="font-size:10px"><?= date('D', strtotime($date)) ?></small>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
-            <?php endforeach; ?>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-title">Attempts by category</div>
-        <?php if (empty($categoryPerf)): ?>
-            <p style="color:var(--muted);font-size:13.5px">No categories yet.</p>
-        <?php else: ?>
-        <div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">
-            <?php foreach ($categoryPerf as $c):
-                $w = $maxCatAttempts > 0 ? round($c['attempts'] / $maxCatAttempts * 100) : 0;
-            ?>
-            <div>
-                <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
-                    <span><?= htmlspecialchars($c['name']) ?></span>
-                    <span style="color:var(--muted)"><?= $c['attempts'] ?></span>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title fw-semibold mb-3">Attempts by category</h6>
+                <?php if (empty($categoryPerf)): ?>
+                    <p class="text-muted small mb-0">No categories yet.</p>
+                <?php else: ?>
+                <div class="d-flex flex-column gap-3">
+                    <?php foreach ($categoryPerf as $c):
+                        $w = $maxCatAttempts > 0 ? round($c['attempts'] / $maxCatAttempts * 100) : 0;
+                    ?>
+                    <div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="fw-medium"><?= htmlspecialchars($c['name']) ?></span>
+                            <span class="text-muted"><?= $c['attempts'] ?></span>
+                        </div>
+                        <div class="progress" style="height:8px">
+                            <div class="progress-bar bg-primary" role="progressbar" style="width:<?= max(2, $w) ?>%"></div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
                 </div>
-                <div style="background:var(--bg);border-radius:6px;height:8px;overflow:hidden">
-                    <div style="background:var(--accent);height:100%;width:<?= max(2, $w) ?>%;border-radius:6px"></div>
-                </div>
+                <?php endif; ?>
             </div>
-            <?php endforeach; ?>
         </div>
-        <?php endif; ?>
     </div>
 </div>
 
 <div class="card">
-    <div class="card-title">Quiz performance</div>
-    <?php if (empty($quizPerf)): ?>
-        <p style="color:var(--muted);font-size:13.5px">No quizzes yet.</p>
-    <?php else: ?>
-    <div class="table-wrap"><table class="table">
-        <thead><tr><th>Quiz</th><th>Attempts</th><th>Avg score</th></tr></thead>
-        <tbody>
-        <?php foreach ($quizPerf as $q): ?>
-            <tr>
-                <td><?= htmlspecialchars($q['title']) ?></td>
-                <td><?= $q['attempts'] ?></td>
-                <td>
-                    <?php if ($q['attempts'] > 0): ?>
-                        <span class="badge <?= $q['avg_pct'] >= 60 ? 'badge-success' : 'badge-warning' ?>">
-                            <?= round($q['avg_pct']) ?>%
-                        </span>
-                    <?php else: ?>
-                        <span style="color:var(--muted);font-size:12.5px">No attempts</span>
-                    <?php endif; ?>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table></div>
-    <?php endif; ?>
+    <div class="card-body">
+        <h6 class="card-title fw-semibold mb-3">Quiz performance</h6>
+        <?php if (empty($quizPerf)): ?>
+            <p class="text-muted small mb-0">No quizzes yet.</p>
+        <?php else: ?>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>Quiz</th><th>Attempts</th><th>Avg score</th></tr></thead>
+                <tbody>
+                <?php foreach ($quizPerf as $q): ?>
+                    <tr>
+                        <td class="fw-medium"><?= htmlspecialchars($q['title']) ?></td>
+                        <td><?= $q['attempts'] ?></td>
+                        <td>
+                            <?php if ($q['attempts'] > 0): ?>
+                                <span class="badge rounded-pill <?= $q['avg_pct'] >= 60 ? 'bg-success' : 'bg-warning text-dark' ?>">
+                                    <?= round($q['avg_pct']) ?>%
+                                </span>
+                            <?php else: ?>
+                                <span class="text-muted small">No attempts</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+    </div>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

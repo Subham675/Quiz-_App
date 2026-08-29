@@ -34,9 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate_practice']))
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">AI Practice</div>
-    <div class="page-subtitle">Generate extra practice questions on any topic — instant feedback, not graded or saved</div>
+<div class="mb-4">
+    <h1 class="page-title">AI Practice</h1>
+    <p class="page-subtitle">Generate extra practice questions on any topic — instant feedback, not graded or saved</p>
 </div>
 
 <div id="offlineBanner" class="alert alert-danger" style="display:none">
@@ -45,39 +45,43 @@ require_once __DIR__ . '/../includes/header.php';
 
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 
-<div class="card" style="margin-bottom:24px">
-    <form method="POST" id="practiceForm">
-        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="POST" id="practiceForm">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
 
-        <div class="form-group" style="position:relative">
-            <label>What do you want to practice? <span style="font-size:12px;color:var(--muted)">(Type any topic or category e.g. "Politics", "Science")</span></label>
-            <input type="text" name="topic" id="practiceTopicInput" placeholder="e.g. Politics, Photosynthesis, World capitals, Indian Constitution" required autocomplete="off" value="<?= htmlspecialchars($topic) ?>">
-            <div id="practiceAutocompleteList" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:99;background:var(--surface,#ffffff);border:1px solid var(--border,#E4E6EA);border-radius:var(--radius-sm,6px);max-height:220px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,.08);margin-top:4px"></div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <div class="form-group">
-                <label>Number of questions</label>
-                <input type="number" name="count" min="1" max="10" value="5">
+            <div class="mb-3 position-relative">
+                <label class="form-label small fw-medium">What do you want to practice? <span class="text-muted fw-normal">(Type any topic or category e.g. "Politics", "Science")</span></label>
+                <input type="text" class="form-control" name="topic" id="practiceTopicInput" placeholder="e.g. Politics, Photosynthesis, World capitals, Indian Constitution" required autocomplete="off" value="<?= htmlspecialchars($topic) ?>">
+                <div id="practiceAutocompleteList" class="dropdown-menu w-100 shadow" style="display:none;max-height:220px;overflow-y:auto"></div>
             </div>
-            <div class="form-group">
-                <label>Difficulty</label>
-                <select name="difficulty">
-                    <option value="easy">Easy</option>
-                    <option value="medium" selected>Medium</option>
-                    <option value="hard">Hard</option>
-                </select>
-            </div>
-        </div>
 
-        <button type="submit" name="generate_practice" id="generateBtn" class="btn btn-primary">Generate practice questions</button>
-    </form>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label small fw-medium">Number of questions</label>
+                    <input type="number" class="form-control" name="count" min="1" max="10" value="5">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-medium">Difficulty</label>
+                    <select name="difficulty" class="form-select">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" name="generate_practice" id="generateBtn" class="btn btn-primary">
+                <i class="bi bi-stars me-1"></i> Generate practice questions
+            </button>
+        </form>
+    </div>
 </div>
 
 <?php if ($practiceQuestions): ?>
 <div id="practiceResults">
     <?php foreach ($practiceQuestions as $i => $q): ?>
-    <div class="question-card" data-question-index="<?= $i ?>">
+    <div class="question-card mb-3" data-question-index="<?= $i ?>">
         <div class="question-number">Question <?= $i + 1 ?> of <?= count($practiceQuestions) ?></div>
         <div class="question-text"><?= htmlspecialchars($q['question']) ?></div>
 
@@ -87,15 +91,17 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <?php endforeach; ?>
 
-        <div class="practice-feedback" style="display:none;margin-top:10px;font-size:13px;font-weight:600"></div>
+        <div class="practice-feedback mt-2 fw-semibold small" style="display:none"></div>
     </div>
     <?php endforeach; ?>
 
-    <div class="card" style="text-align:center">
-        <p style="color:var(--muted);font-size:13.5px;margin-bottom:14px">Want to try another topic?</p>
-        <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('practiceForm').scrollIntoView({behavior:'smooth'})">
-            Generate more
-        </button>
+    <div class="card text-center mb-4">
+        <div class="card-body">
+            <p class="text-muted small mb-3">Want to try another topic?</p>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('practiceForm').scrollIntoView({behavior:'smooth'})">
+                Generate more
+            </button>
+        </div>
     </div>
 </div>
 
@@ -104,7 +110,7 @@ document.querySelectorAll('.practice-option').forEach(option => {
     option.style.cursor = 'pointer';
     option.addEventListener('click', function () {
         const card = this.closest('.question-card');
-        if (card.dataset.answered === '1') return; // already answered, lock it
+        if (card.dataset.answered === '1') return;
         card.dataset.answered = '1';
 
         const allOptions = card.querySelectorAll('.practice-option');
@@ -121,7 +127,7 @@ document.querySelectorAll('.practice-option').forEach(option => {
         });
 
         feedback.style.display = 'block';
-        feedback.style.color = isCorrect ? 'var(--success)' : 'var(--danger)';
+        feedback.className = 'practice-feedback mt-2 fw-semibold small ' + (isCorrect ? 'text-success' : 'text-danger');
         feedback.textContent = isCorrect ? '✓ Correct!' : '✗ Not quite — the correct answer is highlighted above.';
     });
 });
@@ -176,30 +182,18 @@ document.querySelectorAll('.practice-option').forEach(option => {
 
         autoList.innerHTML = '';
         matches.slice(0, 7).forEach(text => {
-            const div = document.createElement('div');
-            div.style.padding = '9px 14px';
-            div.style.cursor = 'pointer';
-            div.style.borderBottom = '1px solid var(--border,#E4E6EA)';
-            div.style.fontSize = '13.5px';
-            div.style.color = 'var(--text,#111318)';
-            div.style.background = 'var(--surface,#ffffff)';
-            div.textContent = text;
+            const item = document.createElement('a');
+            item.className = 'dropdown-item';
+            item.href = '#';
+            item.textContent = text;
 
-            div.addEventListener('mouseenter', () => {
-                div.style.background = 'var(--accent-light,#E6F1FB)';
-                div.style.color = 'var(--accent,#185FA5)';
-            });
-            div.addEventListener('mouseleave', () => {
-                div.style.background = 'var(--surface,#ffffff)';
-                div.style.color = 'var(--text,#111318)';
-            });
-            div.addEventListener('mousedown', (e) => {
+            item.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 topicInput.value = text;
                 autoList.style.display = 'none';
             });
 
-            autoList.appendChild(div);
+            autoList.appendChild(item);
         });
 
         autoList.style.display = 'block';

@@ -45,26 +45,26 @@ function getScheduleStatus(array $quiz, DateTime $now): string {
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">Browse Quizzes</div>
-    <div class="page-subtitle">Pick a quiz and test your knowledge</div>
+<div class="mb-4">
+    <h1 class="page-title">Browse Quizzes</h1>
+    <p class="page-subtitle">Pick a quiz and test your knowledge</p>
 </div>
 
 <!-- Live search with category autocomplete -->
-<div style="position:relative;margin-bottom:16px;max-width:550px">
-    <div style="position:relative">
-        <input type="text" id="liveSearchInput" placeholder="🔍 Search any category or quiz (e.g. Politics, Science, Math)..." autocomplete="off" style="padding-left:14px;height:42px;border-radius:8px">
-        <button id="clearSearchBtn" type="button" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px">&times;</button>
+<div class="position-relative mb-3" style="max-width:550px">
+    <div class="position-relative">
+        <input type="text" id="liveSearchInput" class="form-control" placeholder="🔍 Search any category or quiz (e.g. Politics, Science, Math)..." autocomplete="off">
+        <button id="clearSearchBtn" type="button" class="btn-close position-absolute top-50 end-0 translate-middle-y me-2" style="display:none" aria-label="Clear"></button>
     </div>
-    <div id="searchDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:99;background:var(--surface,#ffffff);border:1px solid var(--border,#E4E6EA);border-radius:var(--radius-md,10px);max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.08);margin-top:4px"></div>
+    <div id="searchDropdown" class="dropdown-menu w-100 shadow" style="display:none;max-height:260px;overflow-y:auto"></div>
 </div>
 
 <!-- Category pills -->
-<div id="categoryPills" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px">
-    <a href="quiz-list.php" class="btn btn-sm cat-pill <?= $catId === 0 ? 'btn-primary' : 'btn-outline' ?>" data-cat-id="0" data-cat-name="All">All</a>
+<div id="categoryPills" class="d-flex flex-wrap gap-2 mb-4">
+    <a href="quiz-list.php" class="btn btn-sm cat-pill <?= $catId === 0 ? 'btn-primary' : 'btn-outline-secondary' ?>" data-cat-id="0" data-cat-name="All">All</a>
     <?php foreach ($categories as $c): ?>
         <a href="quiz-list.php?category=<?= $c['id'] ?>"
-           class="btn btn-sm cat-pill <?= $catId === (int)$c['id'] ? 'btn-primary' : 'btn-outline' ?>"
+           class="btn btn-sm cat-pill <?= $catId === (int)$c['id'] ? 'btn-primary' : 'btn-outline-secondary' ?>"
            data-cat-id="<?= $c['id'] ?>"
            data-cat-name="<?= htmlspecialchars($c['name']) ?>">
             <?= htmlspecialchars($c['name']) ?>
@@ -72,75 +72,81 @@ require_once __DIR__ . '/../includes/header.php';
     <?php endforeach; ?>
 </div>
 
-<div id="noMatchCard" class="card" style="display:none;text-align:center;padding:30px">
-    <p style="color:var(--muted);font-size:14px">No quizzes found matching your search. Try another keyword!</p>
+<div id="noMatchCard" class="card" style="display:none">
+    <div class="card-body text-center">
+        <p class="text-muted">No quizzes found matching your search. Try another keyword!</p>
+    </div>
 </div>
 
 <?php if (empty($quizzes)): ?>
     <div class="card" id="emptyCategoryCard">
-        <p style="color:var(--muted);font-size:13.5px">No quizzes found in this category yet.</p>
+        <div class="card-body">
+            <p class="text-muted small">No quizzes found in this category yet.</p>
+        </div>
     </div>
 <?php else: ?>
-    <div class="three-col" id="quizGrid">
+    <div class="row g-3" id="quizGrid">
         <?php foreach ($quizzes as $q):
             $scheduleStatus = getScheduleStatus($q, $now);
             $isLocked = $scheduleStatus !== 'active';
         ?>
-        <div class="card quiz-card-item"
+        <div class="col-md-6 col-lg-4 quiz-card-item"
              style="<?= $isLocked ? 'opacity:.75' : '' ?>"
              data-title="<?= htmlspecialchars(strtolower($q['title'])) ?>"
              data-category="<?= htmlspecialchars(strtolower($q['category'])) ?>"
              data-desc="<?= htmlspecialchars(strtolower($q['description'] ?? '')) ?>">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:6px">
-                <span class="badge badge-info"><?= htmlspecialchars($q['category']) ?></span>
-                <div style="display:flex;gap:5px;flex-wrap:wrap">
-                    <?php if ($scheduleStatus === 'upcoming'): ?>
-                        <span class="badge badge-warning">⏳ Upcoming</span>
-                    <?php elseif ($scheduleStatus === 'expired'): ?>
-                        <span class="badge badge-danger">🔒 Expired</span>
-                    <?php elseif ($q['attempt_id']): ?>
-                        <span class="badge badge-success">✓ Completed</span>
+            <div class="card h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-1">
+                        <span class="badge bg-info text-dark"><?= htmlspecialchars($q['category']) ?></span>
+                        <div class="d-flex gap-1 flex-wrap">
+                            <?php if ($scheduleStatus === 'upcoming'): ?>
+                                <span class="badge bg-warning text-dark">⏳ Upcoming</span>
+                            <?php elseif ($scheduleStatus === 'expired'): ?>
+                                <span class="badge bg-danger">🔒 Expired</span>
+                            <?php elseif ($q['attempt_id']): ?>
+                                <span class="badge bg-success">✓ Completed</span>
+                            <?php endif; ?>
+                            <?php if ((float)($q['negative_marking'] ?? 0) > 0): ?>
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
+                                    −<?= number_format($q['negative_marking'], 2) ?>/wrong
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <h6 class="card-title mb-1"><?= htmlspecialchars($q['title']) ?></h6>
+                    <p class="text-muted small mb-3" style="min-height:36px">
+                        <?= htmlspecialchars($q['description'] ?? '') ?>
+                    </p>
+                    <small class="text-muted mb-2">
+                        <?= $q['q_count'] ?> questions · <?= round($q['time_limit_seconds'] / 60) ?> min
+                    </small>
+
+                    <?php if (!empty($q['starts_at']) || !empty($q['ends_at'])): ?>
+                    <small class="text-muted mb-2">
+                        <?php if (!empty($q['starts_at'])): ?>
+                            🗓 Opens: <?= date('d M Y, h:i A', strtotime($q['starts_at'])) ?><br>
+                        <?php endif; ?>
+                        <?php if (!empty($q['ends_at'])): ?>
+                            🔒 Closes: <?= date('d M Y, h:i A', strtotime($q['ends_at'])) ?>
+                        <?php endif; ?>
+                    </small>
                     <?php endif; ?>
-                    <?php if ((float)($q['negative_marking'] ?? 0) > 0): ?>
-                        <span class="badge" style="background:rgba(239,68,68,.12);color:var(--danger);border:1px solid rgba(239,68,68,.2)">
-                            −<?= number_format($q['negative_marking'], 2) ?>/wrong
-                        </span>
-                    <?php endif; ?>
+
+                    <div class="mt-auto">
+                        <?php if ($scheduleStatus === 'upcoming'): ?>
+                            <button class="btn btn-outline-secondary btn-sm w-100" disabled>Not started yet</button>
+                        <?php elseif ($scheduleStatus === 'expired'): ?>
+                            <button class="btn btn-outline-secondary btn-sm w-100" disabled>Quiz closed</button>
+                        <?php elseif ($q['attempt_id']): ?>
+                            <a href="result.php?attempt=<?= $q['attempt_id'] ?>" class="btn btn-outline-secondary btn-sm w-100">View result</a>
+                        <?php else: ?>
+                            <a href="take-quiz.php?id=<?= $q['id'] ?>" class="btn btn-primary btn-sm w-100">Start quiz</a>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
-
-            <div class="card-title" style="margin-bottom:6px"><?= htmlspecialchars($q['title']) ?></div>
-            <p style="font-size:13px;color:var(--muted);margin-bottom:14px;min-height:36px">
-                <?= htmlspecialchars($q['description'] ?? '') ?>
-            </p>
-            <div style="font-size:12px;color:var(--muted);margin-bottom:6px">
-                <?= $q['q_count'] ?> questions · <?= round($q['time_limit_seconds'] / 60) ?> min
-            </div>
-
-            <?php if (!empty($q['starts_at']) || !empty($q['ends_at'])): ?>
-            <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">
-                <?php if (!empty($q['starts_at'])): ?>
-                    🗓 Opens: <?= date('d M Y, h:i A', strtotime($q['starts_at'])) ?><br>
-                <?php endif; ?>
-                <?php if (!empty($q['ends_at'])): ?>
-                    🔒 Closes: <?= date('d M Y, h:i A', strtotime($q['ends_at'])) ?>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-
-            <?php if ($scheduleStatus === 'upcoming'): ?>
-                <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center;cursor:not-allowed;opacity:.6" disabled>Not started yet</button>
-            <?php elseif ($scheduleStatus === 'expired'): ?>
-                <button class="btn btn-outline btn-sm" style="width:100%;justify-content:center;cursor:not-allowed;opacity:.6" disabled>Quiz closed</button>
-            <?php elseif ($q['attempt_id']): ?>
-                <a href="result.php?attempt=<?= $q['attempt_id'] ?>" class="btn btn-outline btn-sm" style="width:100%;justify-content:center">
-                    View result
-                </a>
-            <?php else: ?>
-                <a href="take-quiz.php?id=<?= $q['id'] ?>" class="btn btn-primary btn-sm" style="width:100%;justify-content:center">
-                    Start quiz
-                </a>
-            <?php endif; ?>
         </div>
         <?php endforeach; ?>
     </div>
@@ -163,7 +169,6 @@ require_once __DIR__ . '/../includes/header.php';
 
         if (clearBtn) clearBtn.style.display = q ? 'block' : 'none';
 
-        // Filter category pills visibility if typing
         pills.forEach(pill => {
             const name = (pill.dataset.catName || '').toLowerCase();
             if (q === '' || pill.dataset.catId === '0' || name.includes(q)) {
@@ -173,7 +178,6 @@ require_once __DIR__ . '/../includes/header.php';
             }
         });
 
-        // Filter quiz cards in real-time
         let visibleCount = 0;
         cards.forEach(card => {
             const title = card.dataset.title || '';
@@ -211,30 +215,11 @@ require_once __DIR__ . '/../includes/header.php';
         matchedCats.slice(0, 6).forEach(cat => {
             const item = document.createElement('a');
             item.href = 'quiz-list.php?category=' + cat.id;
-            item.style.display = 'flex';
-            item.style.justifyContent = 'space-between';
-            item.style.alignItems = 'center';
-            item.style.padding = '10px 14px';
-            item.style.textDecoration = 'none';
-            item.style.color = 'var(--text,#111318)';
-            item.style.background = 'var(--surface,#ffffff)';
-            item.style.borderBottom = '1px solid var(--border,#E4E6EA)';
-            item.style.fontSize = '13.5px';
-
+            item.className = 'dropdown-item d-flex justify-content-between align-items-center';
             item.innerHTML = `
                 <div>📁 <strong>${escapeHtml(cat.name)}</strong></div>
-                <span style="font-size:11px;color:var(--accent,#185FA5);background:var(--accent-light,#E6F1FB);padding:2px 8px;border-radius:4px;font-weight:600">Filter category &rarr;</span>
+                <span class="badge bg-primary bg-opacity-10 text-primary">Filter category &rarr;</span>
             `;
-
-            item.addEventListener('mouseenter', () => {
-                item.style.background = 'var(--accent-light,#E6F1FB)';
-                item.style.color = 'var(--accent,#185FA5)';
-            });
-            item.addEventListener('mouseleave', () => {
-                item.style.background = 'var(--surface,#ffffff)';
-                item.style.color = 'var(--text,#111318)';
-            });
-
             dropdown.appendChild(item);
         });
 

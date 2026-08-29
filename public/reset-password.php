@@ -50,16 +50,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Forgot Password — QuizApp</title>
-    <link rel="stylesheet" href="/Quiz_app/assets/css/style.css?v=3">
+    <title>Reset Password — QuizApp</title>
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/Quiz_app/assets/css/style.css?v=5">
 </head>
 <body>
 <div class="auth-wrapper">
     <div class="auth-card">
-        <div class="auth-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <div class="auth-icon text-white">
+            <i class="bi bi-shield-lock fs-4"></i>
         </div>
-        <div class="auth-logo">Forgot password?</div>
+        <div class="auth-logo">Reset password</div>
         <div class="auth-subtitle">Enter your email and we'll send a reset link</div>
 
         <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
@@ -68,16 +71,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <?php if (!$success): ?>
         <form method="POST">
             <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-            <div class="form-group">
-                <label>Email address</label>
-                <input type="email" name="email" required placeholder="you@email.com" autofocus>
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Email address</label>
+                <input type="email" class="form-control" name="email" required placeholder="you@email.com" autofocus>
             </div>
-            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center">Send reset link</button>
+            <button type="submit" class="btn btn-primary w-100">Send reset link</button>
         </form>
         <?php endif; ?>
 
-        <p class="auth-divider"><a href="login.php">Back to login</a></p>
+        <p class="auth-divider"><a href="login.php" class="text-decoration-none">Back to login</a></p>
     </div>
 </div>
+<!-- Bootstrap 5.3 JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

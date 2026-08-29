@@ -127,9 +127,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['evaluate_answer'])) {
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">AI Generator</div>
-    <div class="page-subtitle">Powered by Gemini</div>
+<div class="mb-4">
+    <h1 class="page-title">AI Generator</h1>
+    <p class="page-subtitle">Powered by Gemini</p>
 </div>
 
 <div id="offlineBanner" class="alert alert-danger" style="display:none">
@@ -139,132 +139,142 @@ require_once __DIR__ . '/../includes/header.php';
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
-<div class="card" style="margin-bottom:24px">
-    <div class="card-title">Generate quiz questions</div>
-    <form method="POST" id="generateForm">
-        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="card-title fw-semibold mb-3">Generate quiz questions</h6>
+        <form method="POST" id="generateForm">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
 
-        <div class="form-group" style="position:relative">
-            <label>Topic / Category <span style="font-size:12px;color:var(--muted)">(Type to search any category or topic e.g. "Politics", "Science")</span></label>
-            <input type="text" name="topic" id="topicInput" placeholder="e.g. Politics, Photosynthesis, World War II, Indian Constitution" required autocomplete="off" value="<?= htmlspecialchars($_SESSION['ai_topic'] ?? '') ?>">
-            <div id="topicAutocompleteList" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:99;background:var(--surface,#ffffff);border:1px solid var(--border,#E4E6EA);border-radius:var(--radius-sm,6px);max-height:220px;overflow-y:auto;box-shadow:0 6px 18px rgba(0,0,0,.08);margin-top:4px"></div>
-            <div id="topicCategoryHint" style="font-size:12.5px;color:var(--accent);margin-top:6px;display:none"></div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <div class="form-group">
-                <label>Number of questions</label>
-                <input type="number" name="count" min="1" max="20" value="5">
+            <div class="mb-3 position-relative">
+                <label class="form-label small fw-medium">Topic / Category <span class="text-muted fw-normal">(Type to search any category or topic e.g. "Politics", "Science")</span></label>
+                <input type="text" class="form-control" name="topic" id="topicInput" placeholder="e.g. Politics, Photosynthesis, World War II, Indian Constitution" required autocomplete="off" value="<?= htmlspecialchars($_SESSION['ai_topic'] ?? '') ?>">
+                <div id="topicAutocompleteList" class="dropdown-menu w-100 shadow" style="display:none;max-height:220px;overflow-y:auto"></div>
+                <div id="topicCategoryHint" class="text-primary small mt-1" style="display:none"></div>
             </div>
-            <div class="form-group">
-                <label>Difficulty</label>
-                <select name="difficulty">
-                    <option value="easy">Easy</option>
-                    <option value="medium" selected>Medium</option>
-                    <option value="hard">Hard</option>
-                </select>
-            </div>
-        </div>
 
-        <button type="submit" name="generate_questions" id="generateBtn" class="btn btn-primary">Generate with AI</button>
-    </form>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label small fw-medium">Number of questions</label>
+                    <input type="number" class="form-control" name="count" min="1" max="20" value="5">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-medium">Difficulty</label>
+                    <select name="difficulty" class="form-select">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" name="generate_questions" id="generateBtn" class="btn btn-primary">
+                <i class="bi bi-stars me-1"></i> Generate with AI
+            </button>
+        </form>
+    </div>
 </div>
 
 <?php if ($preview): ?>
-<div class="card" style="margin-bottom:24px">
-    <div class="card-title">Review generated questions</div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Uncheck any you don't want, then choose where to save them.</p>
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="card-title fw-semibold mb-1">Review generated questions</h6>
+        <p class="text-muted small mb-3">Uncheck any you don't want, then choose where to save them.</p>
 
-    <form method="POST">
-        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
 
-        <?php foreach ($preview as $i => $q): ?>
-        <div class="question-card">
-            <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
-                <input type="checkbox" name="include[]" value="<?= $i ?>" checked style="width:auto;margin-top:4px">
-                <div style="flex:1">
-                    <div class="question-text"><?= htmlspecialchars($q['question']) ?></div>
-                    <?php foreach ($q['options'] as $opt): ?>
-                        <div class="option-label <?= $opt['correct'] ? 'correct' : '' ?>" style="cursor:default">
-                            <?= htmlspecialchars($opt['text']) ?><?= $opt['correct'] ? ' ✓' : '' ?>
-                        </div>
-                    <?php endforeach; ?>
+            <?php foreach ($preview as $i => $q): ?>
+            <div class="question-card mb-3">
+                <div class="form-check d-flex align-items-start gap-2">
+                    <input class="form-check-input mt-1" type="checkbox" name="include[]" value="<?= $i ?>" id="inc_<?= $i ?>" checked>
+                    <label class="form-check-label w-100" for="inc_<?= $i ?>">
+                        <div class="question-text fw-medium mb-2"><?= htmlspecialchars($q['question']) ?></div>
+                        <?php foreach ($q['options'] as $opt): ?>
+                            <div class="option-label <?= $opt['correct'] ? 'correct' : '' ?> mb-1 user-select-none">
+                                <?= htmlspecialchars($opt['text']) ?><?= $opt['correct'] ? ' ✓' : '' ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </label>
                 </div>
-            </label>
-        </div>
-        <?php endforeach; ?>
-
-        <div class="form-group" style="margin-top:20px">
-            <label>Save to existing quiz</label>
-            <select name="target_quiz_id">
-                <option value="">— Create a new quiz instead —</option>
-                <?php foreach ($quizzes as $qz): ?>
-                    <option value="<?= $qz['id'] ?>"><?= htmlspecialchars($qz['title']) ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <div class="form-group">
-                <label>Or new quiz title</label>
-                <input type="text" name="new_quiz_title" placeholder="Leave blank if using existing quiz above">
             </div>
-            <div class="form-group">
-                <label>New quiz category</label>
-                <select name="new_quiz_category" id="newQuizCategorySelect">
-                    <option value="">Select category</option>
-                    <?php foreach ($categories as $c): ?>
-                        <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
+            <?php endforeach; ?>
+
+            <div class="mb-3 mt-4">
+                <label class="form-label small fw-medium">Save to existing quiz</label>
+                <select name="target_quiz_id" class="form-select">
+                    <option value="">— Create a new quiz instead —</option>
+                    <?php foreach ($quizzes as $qz): ?>
+                        <option value="<?= $qz['id'] ?>"><?= htmlspecialchars($qz['title']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
-        </div>
 
-        <button type="submit" name="save_generated" class="btn btn-primary" style="width:100%;justify-content:center">
-            Save selected questions
-        </button>
-    </form>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label small fw-medium">Or new quiz title</label>
+                    <input type="text" class="form-control" name="new_quiz_title" placeholder="Leave blank if using existing quiz above">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-medium">New quiz category</label>
+                    <select name="new_quiz_category" id="newQuizCategorySelect" class="form-select">
+                        <option value="">Select category</option>
+                        <?php foreach ($categories as $c): ?>
+                            <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" name="save_generated" class="btn btn-primary w-100 py-2">
+                Save selected questions
+            </button>
+        </form>
+    </div>
 </div>
 <?php endif; ?>
 
 <div class="card">
-    <div class="card-title">Evaluate a descriptive answer</div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
-        Paste a question, the model/reference answer, and a student's written answer — AI will score it and explain why.
-    </p>
-    <form method="POST" id="evaluateForm">
-        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+    <div class="card-body">
+        <h6 class="card-title fw-semibold mb-1">Evaluate a descriptive answer</h6>
+        <p class="text-muted small mb-3">
+            Paste a question, the model/reference answer, and a student's written answer — AI will score it and explain why.
+        </p>
+        <form method="POST" id="evaluateForm">
+            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
 
-        <div class="form-group">
-            <label>Question</label>
-            <textarea name="eval_question" rows="2" required><?= htmlspecialchars($_POST['eval_question'] ?? '') ?></textarea>
+            <div class="mb-3">
+                <label class="form-label small fw-medium">Question</label>
+                <textarea class="form-control" name="eval_question" rows="2" required><?= htmlspecialchars($_POST['eval_question'] ?? '') ?></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small fw-medium">Model / reference answer</label>
+                <textarea class="form-control" name="eval_model_answer" rows="3" required><?= htmlspecialchars($_POST['eval_model_answer'] ?? '') ?></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small fw-medium">Student's answer</label>
+                <textarea class="form-control" name="eval_student_answer" rows="3" required><?= htmlspecialchars($_POST['eval_student_answer'] ?? '') ?></textarea>
+            </div>
+
+            <button type="submit" name="evaluate_answer" id="evaluateBtn" class="btn btn-primary">
+                <i class="bi bi-patch-check me-1"></i> Evaluate with AI
+            </button>
+        </form>
+
+        <?php if ($evalResult): ?>
+        <div class="mt-4 pt-3 border-top">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="badge rounded-pill <?= $evalResult['score_percent'] >= 60 ? 'bg-success' : 'bg-danger' ?> fs-5 px-3 py-2">
+                    <?= $evalResult['score_percent'] ?>%
+                </span>
+            </div>
+            <p class="small mb-2"><strong>Feedback:</strong> <?= htmlspecialchars($evalResult['feedback']) ?></p>
+            <p class="small text-success mb-2"><strong>Strengths:</strong> <?= htmlspecialchars($evalResult['strengths']) ?></p>
+            <p class="small text-danger mb-0"><strong>Improvements:</strong> <?= htmlspecialchars($evalResult['improvements']) ?></p>
         </div>
-
-        <div class="form-group">
-            <label>Model / reference answer</label>
-            <textarea name="eval_model_answer" rows="3" required><?= htmlspecialchars($_POST['eval_model_answer'] ?? '') ?></textarea>
-        </div>
-
-        <div class="form-group">
-            <label>Student's answer</label>
-            <textarea name="eval_student_answer" rows="3" required><?= htmlspecialchars($_POST['eval_student_answer'] ?? '') ?></textarea>
-        </div>
-
-        <button type="submit" name="evaluate_answer" id="evaluateBtn" class="btn btn-primary">Evaluate with AI</button>
-    </form>
-
-    <?php if ($evalResult): ?>
-    <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-            <span class="badge <?= $evalResult['score_percent'] >= 60 ? 'badge-success' : 'badge-danger' ?>" style="font-size:16px;padding:8px 14px">
-                <?= $evalResult['score_percent'] ?>%
-            </span>
-        </div>
-        <p style="font-size:13.5px;margin-bottom:10px"><strong>Feedback:</strong> <?= htmlspecialchars($evalResult['feedback']) ?></p>
-        <p style="font-size:13.5px;margin-bottom:10px;color:var(--success)"><strong>Strengths:</strong> <?= htmlspecialchars($evalResult['strengths']) ?></p>
-        <p style="font-size:13.5px;color:var(--danger)"><strong>Improvements:</strong> <?= htmlspecialchars($evalResult['improvements']) ?></p>
+        <?php endif; ?>
     </div>
-    <?php endif; ?>
 </div>
 
 <script>

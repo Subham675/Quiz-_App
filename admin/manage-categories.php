@@ -80,16 +80,16 @@ $trashCount = (int)$db->query("SELECT COUNT(*) FROM categories WHERE deleted_at 
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
-        <div class="page-title">Manage Categories</div>
-        <div class="page-subtitle"><?= $showTrash ? 'Deleted Categories (Trash)' : 'Categories group your quizzes for students to filter by' ?></div>
+        <h1 class="page-title">Manage Categories</h1>
+        <p class="page-subtitle"><?= $showTrash ? 'Deleted Categories (Trash)' : 'Categories group your quizzes for students to filter by' ?></p>
     </div>
     <div>
         <?php if ($showTrash): ?>
-            <a href="manage-categories.php" class="btn btn-primary btn-sm">Active Categories</a>
+            <a href="manage-categories.php" class="btn btn-sm btn-primary">Active Categories</a>
         <?php else: ?>
-            <a href="manage-categories.php?trash=1" class="btn btn-outline btn-sm">
+            <a href="manage-categories.php?trash=1" class="btn btn-sm btn-outline-secondary">
                 🗑️ Trash <?= $trashCount > 0 ? "({$trashCount})" : '' ?>
             </a>
         <?php endif; ?>
@@ -99,60 +99,68 @@ require_once __DIR__ . '/../includes/header.php';
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
-<div class="two-col" style="grid-template-columns:320px 1fr">
-    <div class="card">
-        <div class="card-title"><?= $editCat ? 'Edit category' : 'Add new category' ?></div>
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-            <?php if ($editCat): ?><input type="hidden" name="id" value="<?= $editCat['id'] ?>"><?php endif; ?>
-            <div class="form-group">
-                <label>Category name</label>
-                <input type="text" name="name" required placeholder="e.g. Science" value="<?= htmlspecialchars($editCat['name'] ?? '') ?>">
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title"><?= $editCat ? 'Edit category' : 'Add new category' ?></h6>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <?php if ($editCat): ?><input type="hidden" name="id" value="<?= $editCat['id'] ?>"><?php endif; ?>
+                    <div class="mb-3">
+                        <label class="form-label">Category name</label>
+                        <input type="text" class="form-control" name="name" required placeholder="e.g. Science" value="<?= htmlspecialchars($editCat['name'] ?? '') ?>">
+                    </div>
+                    <button type="submit" name="save_category" class="btn btn-primary w-100">
+                        <?= $editCat ? 'Update' : 'Add category' ?>
+                    </button>
+                    <?php if ($editCat): ?>
+                        <a href="manage-categories.php" class="btn btn-outline-secondary w-100 mt-2">Cancel</a>
+                    <?php endif; ?>
+                </form>
             </div>
-            <button type="submit" name="save_category" class="btn btn-primary" style="width:100%;justify-content:center">
-                <?= $editCat ? 'Update' : 'Add category' ?>
-            </button>
-            <?php if ($editCat): ?>
-                <a href="manage-categories.php" class="btn btn-outline" style="width:100%;justify-content:center;margin-top:8px">Cancel</a>
-            <?php endif; ?>
-        </form>
+        </div>
     </div>
 
-    <div class="card">
-        <div class="card-title"><?= $showTrash ? 'Deleted categories (Trash)' : 'All categories' ?></div>
-        <?php if (empty($categories)): ?>
-            <p style="color:var(--muted);font-size:13.5px"><?= $showTrash ? 'Trash is empty.' : 'No categories yet.' ?></p>
-        <?php else: ?>
-        <div class="table-wrap">
-        <table class="table">
-            <thead><tr><th>Name</th><th>Quizzes</th><th></th></tr></thead>
-            <tbody>
-            <?php foreach ($categories as $c): ?>
-            <tr>
-                <td><?= htmlspecialchars($c['name']) ?></td>
-                <td><?= $c['quiz_count'] ?></td>
-                <td style="white-space:nowrap">
-                    <?php if ($showTrash): ?>
-                        <form method="POST" style="display:inline">
-                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                            <button type="submit" name="restore_category" value="<?= $c['id'] ?>" class="btn btn-sm btn-primary">Restore</button>
-                        </form>
-                    <?php else: ?>
-                        <a href="manage-categories.php?edit=<?= $c['id'] ?>" class="btn btn-sm btn-outline">Edit</a>
-                        <?php if ($c['quiz_count'] == 0): ?>
-                        <form method="POST" style="display:inline" onsubmit="return confirm('Move this category to trash?')">
-                            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                            <button type="submit" name="delete_category" value="<?= $c['id'] ?>" class="btn btn-sm btn-danger">Delete</button>
-                        </form>
-                        <?php endif; ?>
-                    <?php endif; ?>
-                </td>
-            </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title"><?= $showTrash ? 'Deleted categories (Trash)' : 'All categories' ?></h6>
+                <?php if (empty($categories)): ?>
+                    <p class="text-muted small"><?= $showTrash ? 'Trash is empty.' : 'No categories yet.' ?></p>
+                <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Name</th><th>Quizzes</th><th></th></tr></thead>
+                        <tbody>
+                        <?php foreach ($categories as $c): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($c['name']) ?></td>
+                            <td><?= $c['quiz_count'] ?></td>
+                            <td class="text-nowrap">
+                                <?php if ($showTrash): ?>
+                                    <form method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                        <button type="submit" name="restore_category" value="<?= $c['id'] ?>" class="btn btn-sm btn-primary">Restore</button>
+                                    </form>
+                                <?php else: ?>
+                                    <a href="manage-categories.php?edit=<?= $c['id'] ?>" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                    <?php if ($c['quiz_count'] == 0): ?>
+                                    <form method="POST" class="d-inline" onsubmit="return confirm('Move this category to trash?')">
+                                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                        <button type="submit" name="delete_category" value="<?= $c['id'] ?>" class="btn btn-sm btn-danger">Delete</button>
+                                    </form>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endif; ?>
+            </div>
         </div>
-        <?php endif; ?>
     </div>
 </div>
 

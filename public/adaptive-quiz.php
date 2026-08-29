@@ -217,99 +217,113 @@ $categories = $db->query("SELECT id, name FROM categories WHERE deleted_at IS NU
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">🎯 Adaptive Quiz Engine</div>
-    <div class="page-subtitle">Real-time intelligent questions that dynamically scale with your accuracy</div>
+<div class="mb-4">
+    <h1 class="page-title">🎯 Adaptive Quiz Engine</h1>
+    <p class="page-subtitle">Real-time intelligent questions that dynamically scale with your accuracy</p>
 </div>
 
 <!-- Setup screen -->
-<div class="card" id="setupCard" style="max-width:600px;margin:0 auto 24px">
-    <div class="card-title">Choose your Category</div>
-    <p style="color:var(--muted);font-size:13.5px;margin-bottom:18px">
-        The engine automatically adapts difficulty based on your answers:
-        <br>• <strong>2 consecutive correct</strong> &rarr; Level steps up (Easy &rarr; Medium &rarr; Hard)
-        <br>• <strong>1 incorrect</strong> &rarr; Level steps down to reinforce concepts
-    </p>
+<div class="card mb-4 mx-auto" id="setupCard" style="max-width:600px">
+    <div class="card-body p-4">
+        <h6 class="card-title fw-semibold mb-2">Choose your Category</h6>
+        <p class="text-muted small mb-3">
+            The engine automatically adapts difficulty based on your answers:
+            <br>• <strong>2 consecutive correct</strong> &rarr; Level steps up (Easy &rarr; Medium &rarr; Hard)
+            <br>• <strong>1 incorrect</strong> &rarr; Level steps down to reinforce concepts
+        </p>
 
-    <div class="form-group">
-        <label>Select Subject / Category</label>
-        <select id="adaptiveCategorySelect" style="height:42px">
-            <option value="0">🌐 All Categories (Mixed Topics)</option>
-            <?php foreach ($categories as $c): ?>
-                <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
-            <?php endforeach; ?>
-        </select>
-    </div>
-
-    <button type="button" id="startAdaptiveBtn" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:15px">
-        Start Adaptive Quiz
-    </button>
-</div>
-
-<!-- Active Adaptive Quiz Container -->
-<div id="quizContainer" style="display:none;max-width:680px;margin:0 auto">
-    <!-- Live Mastery Meter -->
-    <div class="card" style="margin-bottom:16px;padding:16px 20px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <div style="font-size:13px;font-weight:600">
-                🎯 Current Mastery: <span id="masteryBadge" class="badge badge-info">Intermediate (Medium)</span>
-            </div>
-            <div style="font-size:12.5px;color:var(--muted)">
-                Score: <strong id="liveScore" style="color:var(--accent)">0</strong> | Questions: <strong id="questionCounter">1</strong>/10
-            </div>
-        </div>
-        <div class="progress-bar" style="height:8px;margin:0">
-            <div class="progress-fill" id="masteryProgress" style="width:50%;background:var(--accent)"></div>
-        </div>
-    </div>
-
-    <!-- Question Card -->
-    <div class="card" id="questionBox" style="margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <div class="question-number" id="qNumberLabel">Question 1</div>
-            <div style="display:flex;gap:6px">
-                <span id="diffBadge" class="badge badge-info">Medium</span>
-                <span id="tagBadge" class="badge" style="display:none;background:var(--accent-light);color:var(--accent)"></span>
-            </div>
+        <div class="mb-3">
+            <label class="form-label small fw-medium">Select Subject / Category</label>
+            <select id="adaptiveCategorySelect" class="form-select">
+                <option value="0">🌐 All Categories (Mixed Topics)</option>
+                <?php foreach ($categories as $c): ?>
+                    <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
         </div>
 
-        <div class="question-text" id="qText" style="font-size:16px;font-weight:600;margin-bottom:18px"></div>
-
-        <div id="optionsWrap"></div>
-
-        <!-- Explanation card -->
-        <div id="feedbackBox" style="display:none;margin-top:16px;padding:14px;border-radius:8px"></div>
-
-        <button type="button" id="nextQBtn" class="btn btn-primary" style="display:none;width:100%;justify-content:center;margin-top:16px;padding:11px">
-            Next Question &rarr;
+        <button type="button" id="startAdaptiveBtn" class="btn btn-primary w-100 py-2 fs-6">
+            Start Adaptive Quiz
         </button>
     </div>
 </div>
 
-<!-- Completion Card -->
-<div class="card" id="summaryCard" style="display:none;max-width:600px;margin:0 auto;text-align:center;padding:36px">
-    <div style="font-size:44px;margin-bottom:10px">🏆</div>
-    <div class="page-title" style="font-size:22px">Adaptive Session Complete!</div>
-    <div id="finalMasteryText" style="font-size:15px;color:var(--muted);margin:10px 0 20px"></div>
-
-    <div style="display:flex;gap:16px;justify-content:center;margin-bottom:24px">
-        <div style="background:var(--accent-light);border-radius:10px;padding:14px 20px">
-            <div style="font-size:12px;color:var(--muted)">Accuracy</div>
-            <div id="accuracyText" style="font-size:22px;font-weight:700;color:var(--accent)">0%</div>
-        </div>
-        <div style="background:var(--success-bg);border-radius:10px;padding:14px 20px">
-            <div style="font-size:12px;color:var(--muted)">Correct</div>
-            <div id="correctCountText" style="font-size:22px;font-weight:700;color:var(--success)">0</div>
-        </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px">
-            <div style="font-size:12px;color:var(--muted)">Peak Level</div>
-            <div id="peakLevelText" style="font-size:20px;font-weight:700">Medium</div>
+<!-- Active Adaptive Quiz Container -->
+<div id="quizContainer" class="mx-auto" style="display:none;max-width:680px">
+    <!-- Live Mastery Meter -->
+    <div class="card mb-3">
+        <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="small fw-semibold">
+                    🎯 Current Mastery: <span id="masteryBadge" class="badge rounded-pill bg-info text-dark">Intermediate (Medium)</span>
+                </div>
+                <div class="small text-muted">
+                    Score: <strong id="liveScore" class="text-primary">0</strong> | Questions: <strong id="questionCounter">1</strong>/10
+                </div>
+            </div>
+            <div class="progress" style="height:8px">
+                <div class="progress-bar bg-primary" id="masteryProgress" role="progressbar" style="width:50%"></div>
+            </div>
         </div>
     </div>
 
-    <div style="display:flex;gap:10px;justify-content:center">
-        <button type="button" onclick="location.reload()" class="btn btn-primary btn-sm">Try Another Session</button>
-        <a href="quiz-list.php" class="btn btn-outline btn-sm">Browse Quizzes</a>
+    <!-- Question Card -->
+    <div class="card mb-3" id="questionBox">
+        <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="question-number mb-0" id="qNumberLabel">Question 1</div>
+                <div class="d-flex gap-1">
+                    <span id="diffBadge" class="badge rounded-pill bg-info text-dark">Medium</span>
+                    <span id="tagBadge" class="badge rounded-pill bg-primary bg-opacity-10 text-primary" style="display:none"></span>
+                </div>
+            </div>
+
+            <div class="question-text fw-semibold mb-3" id="qText"></div>
+
+            <div id="optionsWrap"></div>
+
+            <!-- Explanation card -->
+            <div id="feedbackBox" class="p-3 rounded small mt-3" style="display:none"></div>
+
+            <button type="button" id="nextQBtn" class="btn btn-primary w-100 py-2 mt-3" style="display:none">
+                Next Question &rarr;
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Completion Card -->
+<div class="card mx-auto text-center" id="summaryCard" style="display:none;max-width:600px">
+    <div class="card-body p-4 p-md-5">
+        <div class="display-4 mb-2">🏆</div>
+        <h4 class="page-title fs-4">Adaptive Session Complete!</h4>
+        <p id="finalMasteryText" class="text-muted my-3"></p>
+
+        <div class="row g-2 mb-4 justify-content-center">
+            <div class="col-4">
+                <div class="bg-light p-3 rounded">
+                    <div class="small text-muted">Accuracy</div>
+                    <div id="accuracyText" class="fs-4 fw-bold text-primary">0%</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="bg-success bg-opacity-10 p-3 rounded">
+                    <div class="small text-muted">Correct</div>
+                    <div id="correctCountText" class="fs-4 fw-bold text-success">0</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="border p-3 rounded">
+                    <div class="small text-muted">Peak Level</div>
+                    <div id="peakLevelText" class="fs-5 fw-bold">Medium</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <button type="button" onclick="location.reload()" class="btn btn-primary btn-sm">Try Another Session</button>
+            <a href="quiz-list.php" class="btn btn-outline-secondary btn-sm">Browse Quizzes</a>
+        </div>
     </div>
 </div>
 
@@ -349,19 +363,19 @@ require_once __DIR__ . '/../includes/header.php';
     function updateMasteryUI() {
         if (currentLevel === 'easy') {
             masteryBadge.textContent = 'Apprentice (Easy)';
-            masteryBadge.className = 'badge badge-warning';
+            masteryBadge.className = 'badge rounded-pill bg-warning text-dark';
             masteryProgress.style.width = '25%';
-            masteryProgress.style.background = 'var(--warning,#BA7517)';
+            masteryProgress.className = 'progress-bar bg-warning';
         } else if (currentLevel === 'medium') {
             masteryBadge.textContent = 'Intermediate (Medium)';
-            masteryBadge.className = 'badge badge-info';
+            masteryBadge.className = 'badge rounded-pill bg-info text-dark';
             masteryProgress.style.width = '55%';
-            masteryProgress.style.background = 'var(--accent,#185FA5)';
+            masteryProgress.className = 'progress-bar bg-primary';
         } else {
             masteryBadge.textContent = 'Master (Hard)';
-            masteryBadge.className = 'badge badge-success';
+            masteryBadge.className = 'badge rounded-pill bg-success';
             masteryProgress.style.width = '90%';
-            masteryProgress.style.background = 'var(--success,#1D9E75)';
+            masteryProgress.className = 'progress-bar bg-success';
             peakLevel = 'Master (Hard)';
         }
     }

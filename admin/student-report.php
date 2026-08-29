@@ -43,49 +43,61 @@ $attempts = $attemptsStmt->fetchAll();
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title"><?= htmlspecialchars($student['name']) ?></div>
-    <div class="page-subtitle">
-        <a href="manage-users.php">&larr; Back to users</a> · <?= htmlspecialchars($student['email']) ?>
+<div class="mb-4">
+    <h1 class="page-title"><?= htmlspecialchars($student['name']) ?></h1>
+    <p class="page-subtitle">
+        <a href="manage-users.php" class="text-decoration-none">&larr; Back to users</a> · <?= htmlspecialchars($student['email']) ?>
         · Joined <?= date('d M Y', strtotime($student['created_at'])) ?>
         <?php if ($student['is_banned']): ?>
-            <span class="badge badge-danger">Banned</span>
+            <span class="badge rounded-pill bg-danger ms-1">Banned</span>
         <?php endif; ?>
-    </div>
+    </p>
 </div>
 
-<div class="stat-grid" style="margin-bottom:24px">
-    <div class="card"><div class="stat-label">Quizzes taken</div><div class="stat-value"><?= (int)$stats['total'] ?></div></div>
-    <div class="card"><div class="stat-label">Avg score</div><div class="stat-value"><?= $stats['avg_score'] ?? 0 ?>%</div></div>
-    <div class="card"><div class="stat-label">Best score</div><div class="stat-value"><?= round($stats['best_score'] ?? 0) ?>%</div></div>
-    <div class="card"><div class="stat-label">Passes</div><div class="stat-value"><?= (int)$stats['passes'] ?></div></div>
-    <div class="card"><div class="stat-label">Certificates</div><div class="stat-value"><?= $certCount ?></div></div>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Quizzes taken</div><div class="stat-value"><?= (int)$stats['total'] ?></div></div></div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Avg score</div><div class="stat-value"><?= $stats['avg_score'] ?? 0 ?>%</div></div></div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Best score</div><div class="stat-value"><?= round($stats['best_score'] ?? 0) ?>%</div></div></div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Passes</div><div class="stat-value"><?= (int)$stats['passes'] ?></div></div></div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card h-100"><div class="card-body"><div class="stat-label">Certificates</div><div class="stat-value"><?= $certCount ?></div></div></div>
+    </div>
 </div>
 
 <div class="card">
-    <div class="card-title">All attempts</div>
-    <?php if (empty($attempts)): ?>
-        <p style="color:var(--muted)">No attempts yet.</p>
-    <?php else: ?>
-    <div class="table-wrap">
-    <table class="table">
-        <thead><tr><th>Quiz</th><th>Score</th><th>Time</th><th>Date</th><th></th></tr></thead>
-        <tbody>
-        <?php foreach ($attempts as $a):
-            $pct = $a['total_marks'] > 0 ? round($a['score']*100/$a['total_marks']) : 0;
-        ?>
-        <tr>
-            <td><?= htmlspecialchars($a['title']) ?></td>
-            <td><span class="badge <?= $pct >= 60 ? 'badge-success' : 'badge-danger' ?>"><?= $pct ?>%</span></td>
-            <td style="color:var(--muted)"><?= gmdate('i:s', $a['time_taken_seconds']) ?></td>
-            <td style="color:var(--muted);font-size:12px"><?= date('d M Y, h:i A', strtotime($a['submitted_at'])) ?></td>
-            <td><a href="attempt-detail.php?id=<?= $a['id'] ?>" class="btn btn-sm btn-outline">View</a></td>
-        </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
+    <div class="card-body">
+        <h6 class="card-title fw-semibold mb-3">All attempts</h6>
+        <?php if (empty($attempts)): ?>
+            <p class="text-muted small mb-0">No attempts yet.</p>
+        <?php else: ?>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead><tr><th>Quiz</th><th>Score</th><th>Time</th><th>Date</th><th></th></tr></thead>
+                <tbody>
+                <?php foreach ($attempts as $a):
+                    $pct = $a['total_marks'] > 0 ? round($a['score']*100/$a['total_marks']) : 0;
+                ?>
+                <tr>
+                    <td class="fw-medium"><?= htmlspecialchars($a['title']) ?></td>
+                    <td><span class="badge rounded-pill <?= $pct >= 60 ? 'bg-success' : 'bg-danger' ?>"><?= $pct ?>%</span></td>
+                    <td class="text-muted small"><?= gmdate('i:s', $a['time_taken_seconds']) ?></td>
+                    <td class="text-muted small"><?= date('d M Y, h:i A', strtotime($a['submitted_at'])) ?></td>
+                    <td><a href="attempt-detail.php?id=<?= $a['id'] ?>" class="btn btn-sm btn-outline-secondary">View</a></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
     </div>
-    <?php endif; ?>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

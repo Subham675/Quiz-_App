@@ -286,10 +286,10 @@ require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="quiz-wrapper">
-    <div class="quiz-header">
+    <div class="quiz-header d-flex justify-content-between align-items-center mb-4">
         <div>
-            <div class="page-title"><?= htmlspecialchars($quiz['title']) ?></div>
-            <div class="page-subtitle"><?= count($questions) ?> questions<?= ($quiz['negative_marking'] ?? 0) > 0 ? ' · <span style="color:var(--danger)">−' . number_format($quiz['negative_marking'], 2) . ' per wrong answer</span>' : '' ?></div>
+            <h1 class="page-title mb-1"><?= htmlspecialchars($quiz['title']) ?></h1>
+            <p class="page-subtitle mb-0"><?= count($questions) ?> questions<?= ($quiz['negative_marking'] ?? 0) > 0 ? ' · <span class="text-danger">−' . number_format($quiz['negative_marking'], 2) . ' per wrong answer</span>' : '' ?></p>
         </div>
         <div class="quiz-timer" id="timer"><?= gmdate('i:s', $remainingSeconds) ?></div>
     </div>
@@ -299,13 +299,15 @@ require_once __DIR__ . '/../includes/header.php';
         ⚠️ <strong>Anti-Cheat Active:</strong> Tab switching is monitored. <span id="tabSwitchCount"><?= (int)($activeAttempt['tab_switch_count'] ?? 0) ?></span> warning(s) logged.
     </div>
 
-    <div class="progress-bar">
-        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    <div class="progress mb-3" style="height: 6px;">
+        <div class="progress-bar bg-primary" id="progressFill" role="progressbar" style="width:0%"></div>
     </div>
 
     <?php if (empty($questions)): ?>
         <div class="card">
-            <p style="color:var(--muted)">This quiz has no questions yet. Please check back later.</p>
+            <div class="card-body text-center text-muted">
+                This quiz has no questions yet. Please check back later.
+            </div>
         </div>
     <?php else: ?>
     <form method="POST" id="quizForm">
@@ -331,14 +333,14 @@ require_once __DIR__ . '/../includes/header.php';
 
             <?php foreach ($options as $opt): ?>
             <label class="option-label">
-                <input type="radio" name="answers[<?= $q['id'] ?>]" value="<?= $opt['id'] ?>" required>
+                <input type="radio" class="form-check-input mt-0 me-2" name="answers[<?= $q['id'] ?>]" value="<?= $opt['id'] ?>" required>
                 <span><?= htmlspecialchars($opt['option_text']) ?></span>
             </label>
             <?php endforeach; ?>
         </div>
         <?php endforeach; ?>
 
-        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px" id="submitBtn">
+        <button type="submit" class="btn btn-primary w-100 py-2 fs-6 mt-3" id="submitBtn">
             Submit Quiz
         </button>
     </form>

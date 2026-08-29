@@ -137,120 +137,128 @@ $deleted = $db->query("
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">Manage Users</div>
-    <div class="page-subtitle"><?= count($users) ?> active user<?= count($users) !== 1 ? 's' : '' ?><?= count($deleted) > 0 ? ' · ' . count($deleted) . ' removed' : '' ?></div>
+<div class="mb-4">
+    <h1 class="page-title">Manage Users</h1>
+    <p class="page-subtitle"><?= count($users) ?> active user<?= count($users) !== 1 ? 's' : '' ?><?= count($deleted) > 0 ? ' · ' . count($deleted) . ' removed' : '' ?></p>
 </div>
 
 <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
 <!-- Search -->
-<div class="card" style="margin-bottom:16px">
-    <form method="GET" style="display:flex;gap:8px;align-items:center">
-        <input type="text" name="search" placeholder="Search by name or email..."
-               value="<?= htmlspecialchars($search) ?>" style="flex:1">
-        <button type="submit" class="btn btn-primary btn-sm">Search</button>
-        <?php if ($search): ?>
-            <a href="manage-users.php" class="btn btn-outline btn-sm">Clear</a>
-        <?php endif; ?>
-    </form>
+<div class="card mb-3">
+    <div class="card-body p-3">
+        <form method="GET" class="d-flex gap-2 align-items-center">
+            <input type="text" class="form-control form-control-sm" name="search" placeholder="Search by name or email..."
+                   value="<?= htmlspecialchars($search) ?>">
+            <button type="submit" class="btn btn-primary btn-sm text-nowrap">Search</button>
+            <?php if ($search): ?>
+                <a href="manage-users.php" class="btn btn-outline-secondary btn-sm text-nowrap">Clear</a>
+            <?php endif; ?>
+        </form>
+    </div>
 </div>
 
 <!-- Active Users Table -->
-<div class="card" style="margin-bottom:20px">
-    <?php if (empty($users)): ?>
-        <p style="color:var(--muted);font-size:13.5px">No users found.</p>
-    <?php else: ?>
-    <div class="table-wrap"><table class="table">
-        <thead>
-            <tr>
-                <th>#</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Attempts</th>
-                <th>Certs</th>
-                <th>Status</th>
-                <th>Joined</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-        <?php foreach ($users as $i => $u): ?>
-            <tr>
-                <td style="color:var(--muted);font-size:12px;font-weight:600"><?= $i + 1 ?></td>
-                <td><?= htmlspecialchars($u['name']) ?></td>
-                <td style="color:var(--muted)"><?= htmlspecialchars($u['email']) ?></td>
-                <td><?= $u['attempts_count'] ?></td>
-                <td><?= $u['certs_count'] ?></td>
-                <td>
-                    <?php if ($u['is_banned']): ?>
-                        <span class="badge badge-danger">Banned</span>
-                    <?php elseif (!$u['is_verified']): ?>
-                        <span class="badge badge-warning">Unverified</span>
-                    <?php else: ?>
-                        <span class="badge badge-success">Active</span>
-                    <?php endif; ?>
-                </td>
-                <td style="color:var(--muted);font-size:12px"><?= date('d M Y', strtotime($u['created_at'])) ?></td>
-                <td style="white-space:nowrap">
-                    <a href="student-report.php?id=<?= $u['id'] ?>" class="btn btn-sm btn-outline">Report</a>
+<div class="card mb-4">
+    <div class="card-body">
+        <?php if (empty($users)): ?>
+            <p class="text-muted small mb-0">No users found.</p>
+        <?php else: ?>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Attempts</th>
+                        <th>Certs</th>
+                        <th>Status</th>
+                        <th>Joined</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($users as $i => $u): ?>
+                    <tr>
+                        <td class="text-muted small fw-semibold"><?= $i + 1 ?></td>
+                        <td class="fw-medium"><?= htmlspecialchars($u['name']) ?></td>
+                        <td class="text-muted small"><?= htmlspecialchars($u['email']) ?></td>
+                        <td><?= $u['attempts_count'] ?></td>
+                        <td><?= $u['certs_count'] ?></td>
+                        <td>
+                            <?php if ($u['is_banned']): ?>
+                                <span class="badge rounded-pill bg-danger">Banned</span>
+                            <?php elseif (!$u['is_verified']): ?>
+                                <span class="badge rounded-pill bg-warning text-dark">Unverified</span>
+                            <?php else: ?>
+                                <span class="badge rounded-pill bg-success">Active</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-muted small"><?= date('d M Y', strtotime($u['created_at'])) ?></td>
+                        <td class="text-nowrap">
+                            <a href="student-report.php?id=<?= $u['id'] ?>" class="btn btn-sm btn-outline-secondary">Report</a>
 
-                    <!-- Ban / Unban -->
-                    <form method="POST" style="display:inline"
-                          onsubmit="return confirm('<?= $u['is_banned'] ? 'Unban' : 'Ban' ?> this user?')">
-                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                        <button type="submit" name="toggle_ban" value="<?= $u['id'] ?>"
-                                class="btn btn-sm <?= $u['is_banned'] ? 'btn-outline' : 'btn-danger' ?>">
-                            <?= $u['is_banned'] ? 'Unban' : 'Ban' ?>
-                        </button>
-                    </form>
+                            <!-- Ban / Unban -->
+                            <form method="POST" class="d-inline"
+                                  onsubmit="return confirm('<?= $u['is_banned'] ? 'Unban' : 'Ban' ?> this user?')">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                <button type="submit" name="toggle_ban" value="<?= $u['id'] ?>"
+                                        class="btn btn-sm <?= $u['is_banned'] ? 'btn-outline-secondary' : 'btn-outline-danger' ?>">
+                                    <?= $u['is_banned'] ? 'Unban' : 'Ban' ?>
+                                </button>
+                            </form>
 
-                    <!-- Soft Delete -->
-                    <form method="POST" style="display:inline"
-                          onsubmit="return confirm('Remove <?= htmlspecialchars($u['name'], ENT_QUOTES) ?>? Their data will be kept and they can be restored.')">
-                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                        <button type="submit" name="delete_user" value="<?= $u['id'] ?>"
-                                class="btn btn-sm btn-danger">Remove</button>
-                    </form>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table></div>
-    <?php endif; ?>
+                            <!-- Soft Delete -->
+                            <form method="POST" class="d-inline"
+                                  onsubmit="return confirm('Remove <?= htmlspecialchars($u['name'], ENT_QUOTES) ?>? Their data will be kept and they can be restored.')">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                <button type="submit" name="delete_user" value="<?= $u['id'] ?>"
+                                        class="btn btn-sm btn-danger">Remove</button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+    </div>
 </div>
 
 <!-- Deleted / Removed Users -->
 <?php if (!empty($deleted)): ?>
 <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:13px;font-weight:600;color:var(--muted)">🗑 Removed Users (<?= count($deleted) ?>)</div>
+    <div class="card-body">
+        <h6 class="card-title text-muted fw-semibold mb-3">🗑 Removed Users (<?= count($deleted) ?>)</h6>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr><th>#</th><th>Name</th><th>Email</th><th>Removed on</th><th></th></tr>
+                </thead>
+                <tbody>
+                <?php foreach ($deleted as $i => $u): ?>
+                    <tr class="opacity-75">
+                        <td class="small text-muted"><?= $i + 1 ?></td>
+                        <td class="text-decoration-line-through text-muted"><?= htmlspecialchars($u['name']) ?></td>
+                        <td class="text-muted small"><?= htmlspecialchars($u['email']) ?></td>
+                        <td class="text-muted small"><?= date('d M Y', strtotime($u['created_at'])) ?></td>
+                        <td>
+                            <!-- Restore -->
+                            <form method="POST" class="d-inline"
+                                  onsubmit="return confirm('Restore <?= htmlspecialchars($u['name'], ENT_QUOTES) ?>?')">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                <button type="submit" name="restore_user" value="<?= $u['id'] ?>"
+                                        class="btn btn-sm btn-primary">Restore</button>
+                            </form>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
-    <div class="table-wrap"><table class="table">
-        <thead>
-            <tr><th>#</th><th>Name</th><th>Email</th><th>Removed on</th><th></th></tr>
-        </thead>
-        <tbody>
-        <?php foreach ($deleted as $i => $u): ?>
-            <tr style="opacity:.7">
-                <td style="font-size:12px;color:var(--muted)"><?= $i + 1 ?></td>
-                <td style="text-decoration:line-through;color:var(--muted)"><?= htmlspecialchars($u['name']) ?></td>
-                <td style="color:var(--muted)"><?= htmlspecialchars($u['email']) ?></td>
-                <td style="font-size:12px;color:var(--muted)"><?= date('d M Y', strtotime($u['created_at'])) ?></td>
-                <td>
-                    <!-- Restore -->
-                    <form method="POST" style="display:inline"
-                          onsubmit="return confirm('Restore <?= htmlspecialchars($u['name'], ENT_QUOTES) ?>?')">
-                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                        <button type="submit" name="restore_user" value="<?= $u['id'] ?>"
-                                class="btn btn-sm btn-outline">Restore</button>
-                    </form>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table></div>
 </div>
 <?php endif; ?>
 

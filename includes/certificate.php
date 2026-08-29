@@ -21,6 +21,28 @@ function generateCertificateIfEligible(int $attemptId): ?array
     $existing = $db->prepare("SELECT * FROM certificates WHERE attempt_id = ?");
     $existing->execute([$attemptId]);
     if ($row = $existing->fetch()) {
+        // If the PDF file was deleted from disk, regenerate it
+        $absPath = __DIR__ . '/../' . $row['cert_path'];
+        if (!file_exists($absPath)) {
+            // Fetch attempt details to rebuild the PDF
+            $rebuildStmt = $db->prepare("
+                SELECT a.id, a.user_id, a.score, a.total_marks, a.submitted_at,
+                       u.name AS user_name, q.title AS quiz_title
+                FROM attempts a
+                JOIN users u   ON u.id = a.user_id
+                JOIN quizzes q ON q.id = a.quiz_id
+                WHERE a.id = ? AND a.is_completed = 1
+            ");
+            $rebuildStmt->execute([$attemptId]);
+            $attempt = $rebuildStmt->fetch();
+            if ($attempt && $attempt['total_marks'] > 0) {
+                $pct = round($attempt['score'] * 100 / $attempt['total_marks']);
+                if (!is_dir(CERT_DIR)) {
+                    mkdir(CERT_DIR, 0775, true);
+                }
+                buildCertificatePdf($absPath, $attempt['user_name'], $attempt['quiz_title'], $pct, $row['unique_code'], $attempt['submitted_at']);
+            }
+        }
         return $row;
     }
 

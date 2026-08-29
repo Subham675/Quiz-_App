@@ -63,97 +63,127 @@ $trend = array_reverse($trendStmt->fetchAll());
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">Welcome back, <?= htmlspecialchars($_SESSION['name']) ?>!</div>
-    <div class="page-subtitle">Here's your progress at a glance</div>
+<div class="mb-4">
+    <h1 class="page-title">Welcome back, <?= htmlspecialchars($_SESSION['name']) ?>!</h1>
+    <p class="page-subtitle">Here's your progress at a glance</p>
 </div>
 
-<div class="stat-grid">
-    <div class="stat-card">
-        <div class="stat-label">Quizzes taken</div>
-        <div class="stat-value"><?= $totalAttempts ?></div>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="stat-label">Quizzes taken</div>
+                <div class="stat-value"><?= $totalAttempts ?></div>
+            </div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Best score</div>
-        <div class="stat-value"><?= $bestScore ?>%</div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="stat-label">Best score</div>
+                <div class="stat-value"><?= $bestScore ?>%</div>
+            </div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Avg score</div>
-        <div class="stat-value"><?= $avgScore ?>%</div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="stat-label">Avg score</div>
+                <div class="stat-value"><?= $avgScore ?>%</div>
+            </div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Certificates</div>
-        <div class="stat-value"><?= $totalCerts ?></div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="stat-label">Certificates</div>
+                <div class="stat-value"><?= $totalCerts ?></div>
+            </div>
+        </div>
     </div>
-    <div class="stat-card" style="position:relative;overflow:hidden">
-        <div class="stat-label">🔥 Daily Streak</div>
-        <div class="stat-value" style="color:<?= $streak > 0 ? 'var(--warning, #f59e0b)' : 'var(--muted)' ?>"><?= $streak ?></div>
-        <?php if ($streak > 0): ?>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px"><?= $streak === 1 ? 'Day started!' : 'Days in a row!' ?></div>
-        <?php else: ?>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Take a quiz to start!</div>
-        <?php endif; ?>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="stat-label">🔥 Daily Streak</div>
+                <div class="stat-value" style="color:<?= $streak > 0 ? '#f59e0b' : 'var(--qa-muted)' ?>"><?= $streak ?></div>
+                <?php if ($streak > 0): ?>
+                <div class="stat-sub"><?= $streak === 1 ? 'Day started!' : 'Days in a row!' ?></div>
+                <?php else: ?>
+                <div class="stat-sub">Take a quiz to start!</div>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 </div>
 
 <?php if (count($trend) >= 2): ?>
-<div class="card" style="margin-top:20px">
-    <div class="card-title">Your progress</div>
-    <p style="font-size:12.5px;color:var(--muted);margin-bottom:16px">Score trend across your last <?= count($trend) ?> quiz attempts</p>
-    <div style="display:flex;align-items:flex-end;gap:10px;height:140px">
-        <?php foreach ($trend as $t): ?>
-        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
-            <div style="font-size:11px;color:var(--muted)"><?= (int)$t['pct'] ?>%</div>
-            <div style="width:100%;background:<?= $t['pct'] >= 60 ? 'var(--success)' : 'var(--danger)' ?>;border-radius:4px 4px 0 0;height:<?= max(4, $t['pct']) ?>%;min-height:4px"></div>
-            <div style="font-size:10px;color:var(--muted)"><?= date('d M', strtotime($t['submitted_at'])) ?></div>
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="card-title">Your progress</h6>
+        <p class="text-muted small mb-3">Score trend across your last <?= count($trend) ?> quiz attempts</p>
+        <div class="d-flex align-items-end gap-2" style="height:140px">
+            <?php foreach ($trend as $t): ?>
+            <div class="flex-fill d-flex flex-column align-items-center gap-1">
+                <small class="text-muted"><?= (int)$t['pct'] ?>%</small>
+                <div style="width:100%;background:<?= $t['pct'] >= 60 ? 'var(--bs-success)' : 'var(--bs-danger)' ?>;border-radius:4px 4px 0 0;height:<?= max(4, $t['pct']) ?>%;min-height:4px"></div>
+                <small class="text-muted" style="font-size:10px"><?= date('d M', strtotime($t['submitted_at'])) ?></small>
+            </div>
+            <?php endforeach; ?>
         </div>
-        <?php endforeach; ?>
     </div>
 </div>
 <?php endif; ?>
 
-<div class="two-col">
-    <div class="card">
-        <div class="card-title">Quizzes to try</div>
-        <?php if (empty($suggested)): ?>
-            <p style="color:var(--muted);font-size:13px">You've completed all available quizzes!</p>
-        <?php else: ?>
-            <?php foreach ($suggested as $q): ?>
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
-                <div>
-                    <div style="font-size:13.5px;font-weight:500"><?= htmlspecialchars($q['title']) ?></div>
-                    <div style="font-size:11px;color:var(--muted);margin-top:2px">
-                        <?= $q['q_count'] ?> questions · <?= round($q['time_limit_seconds']/60) ?> min · <?= htmlspecialchars($q['category']) ?>
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">Quizzes to try</h6>
+                <?php if (empty($suggested)): ?>
+                    <p class="text-muted small">You've completed all available quizzes!</p>
+                <?php else: ?>
+                    <?php foreach ($suggested as $q): ?>
+                    <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                        <div>
+                            <div class="fw-medium small"><?= htmlspecialchars($q['title']) ?></div>
+                            <small class="text-muted">
+                                <?= $q['q_count'] ?> questions · <?= round($q['time_limit_seconds']/60) ?> min · <?= htmlspecialchars($q['category']) ?>
+                            </small>
+                        </div>
+                        <a href="take-quiz.php?id=<?= $q['id'] ?>" class="btn btn-sm btn-primary">Start</a>
                     </div>
-                </div>
-                <a href="take-quiz.php?id=<?= $q['id'] ?>" class="btn btn-sm btn-primary">Start</a>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
-            <?php endforeach; ?>
-        <?php endif; ?>
+        </div>
     </div>
 
-    <div class="card">
-        <div class="card-title">Recent attempts</div>
-        <?php if (empty($recentAttempts)): ?>
-            <p style="color:var(--muted);font-size:13px">No attempts yet. Take your first quiz!</p>
-        <?php else: ?>
-            <table class="table">
-                <thead><tr><th>Quiz</th><th>Score</th><th>Date</th></tr></thead>
-                <tbody>
-                <?php foreach ($recentAttempts as $a): ?>
-                <tr>
-                    <td><?= htmlspecialchars($a['title']) ?></td>
-                    <td>
-                        <span class="badge <?= $a['pct'] >= 60 ? 'badge-success' : 'badge-danger' ?>">
-                            <?= $a['pct'] ?>%
-                        </span>
-                    </td>
-                    <td style="color:var(--muted);font-size:12px"><?= date('d M', strtotime($a['submitted_at'])) ?></td>
-                </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php endif; ?>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="card-title">Recent attempts</h6>
+                <?php if (empty($recentAttempts)): ?>
+                    <p class="text-muted small">No attempts yet. Take your first quiz!</p>
+                <?php else: ?>
+                    <table class="table table-hover mb-0">
+                        <thead><tr><th>Quiz</th><th>Score</th><th>Date</th></tr></thead>
+                        <tbody>
+                        <?php foreach ($recentAttempts as $a): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($a['title']) ?></td>
+                            <td>
+                                <span class="badge rounded-pill <?= $a['pct'] >= 60 ? 'bg-success' : 'bg-danger' ?>">
+                                    <?= $a['pct'] ?>%
+                                </span>
+                            </td>
+                            <td class="text-muted small"><?= date('d M', strtotime($a['submitted_at'])) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 </div>
 

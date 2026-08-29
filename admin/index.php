@@ -27,64 +27,84 @@ $recentAttempts = $db->query("
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header">
-    <div class="page-title">Dashboard</div>
-    <div class="page-subtitle">Welcome back, <?= htmlspecialchars($_SESSION['name']) ?></div>
+<div class="mb-4">
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Welcome back, <?= htmlspecialchars($_SESSION['name']) ?></p>
 </div>
 
-<div class="stat-grid">
-    <div class="stat-card">
-        <div class="stat-label">Total users</div>
-        <div class="stat-value"><?= $totalUsers ?></div>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="stat-label">Total users</div>
+                <div class="stat-value"><?= $totalUsers ?></div>
+            </div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Total quizzes</div>
-        <div class="stat-value"><?= $totalQuizzes ?></div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="stat-label">Total quizzes</div>
+                <div class="stat-value"><?= $totalQuizzes ?></div>
+            </div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Attempts today</div>
-        <div class="stat-value"><?= $totalAttempts ?></div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="stat-label">Attempts today</div>
+                <div class="stat-value"><?= $totalAttempts ?></div>
+            </div>
+        </div>
     </div>
-    <div class="stat-card">
-        <div class="stat-label">Certs this month</div>
-        <div class="stat-value"><?= $totalCerts ?></div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="stat-label">Certs this month</div>
+                <div class="stat-value"><?= $totalCerts ?></div>
+            </div>
+        </div>
     </div>
 </div>
 
 <div class="card">
-    <div class="card-title">Recent attempts</div>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>User</th>
-                <th>Quiz</th>
-                <th>Score</th>
-                <th>Result</th>
-                <th>Date</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-        <?php foreach ($recentAttempts as $a): ?>
-            <tr>
-                <td><?= htmlspecialchars($a['user_name']) ?></td>
-                <td><?= htmlspecialchars($a['quiz_title']) ?></td>
-                <td><?= $a['pct'] ?>%</td>
-                <td>
-                    <?php if ($a['pct'] >= 60): ?>
-                        <span class="badge badge-success">Passed</span>
-                    <?php elseif ($a['pct'] >= 40): ?>
-                        <span class="badge badge-warning">Borderline</span>
-                    <?php else: ?>
-                        <span class="badge badge-danger">Failed</span>
-                    <?php endif; ?>
-                </td>
-                <td style="color:var(--muted);font-size:12px"><?= date('d M Y', strtotime($a['submitted_at'])) ?></td>
-                <td><a href="attempt-detail.php?id=<?= $a['id'] ?>" class="btn btn-sm btn-outline">View</a></td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
+    <div class="card-body">
+        <h6 class="card-title">Recent attempts</h6>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Quiz</th>
+                        <th>Score</th>
+                        <th>Result</th>
+                        <th>Date</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($recentAttempts as $a): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($a['user_name']) ?></td>
+                        <td><?= htmlspecialchars($a['quiz_title']) ?></td>
+                        <td><?= $a['pct'] ?>%</td>
+                        <td>
+                            <?php if ($a['pct'] >= 60): ?>
+                                <span class="badge rounded-pill bg-success">Passed</span>
+                            <?php elseif ($a['pct'] >= 40): ?>
+                                <span class="badge rounded-pill bg-warning text-dark">Borderline</span>
+                            <?php else: ?>
+                                <span class="badge rounded-pill bg-danger">Failed</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-muted small"><?= date('d M Y', strtotime($a['submitted_at'])) ?></td>
+                        <td><a href="attempt-detail.php?id=<?= $a['id'] ?>" class="btn btn-sm btn-outline-secondary">View</a></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

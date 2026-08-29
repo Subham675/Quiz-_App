@@ -187,16 +187,16 @@ $optStmt = $db->prepare("SELECT * FROM options WHERE question_id = ?");
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
-        <div class="page-title">Questions — <?= htmlspecialchars($quiz['title']) ?></div>
-        <div class="page-subtitle"><a href="manage-quizzes.php">&larr; Back to quizzes</a> · <?= count($questions) ?> <?= $showTrash ? 'deleted' : 'active' ?> question<?= count($questions) !== 1 ? 's' : '' ?></div>
+        <h1 class="page-title">Questions — <?= htmlspecialchars($quiz['title']) ?></h1>
+        <p class="page-subtitle"><a href="manage-quizzes.php" class="text-decoration-none">&larr; Back to quizzes</a> · <?= count($questions) ?> <?= $showTrash ? 'deleted' : 'active' ?> question<?= count($questions) !== 1 ? 's' : '' ?></p>
     </div>
-    <div style="display:flex;gap:8px">
+    <div class="d-flex gap-2">
         <?php if ($showTrash): ?>
             <a href="manage-questions.php?quiz_id=<?= $quizId ?>" class="btn btn-primary btn-sm">Active Questions</a>
         <?php else: ?>
-            <a href="manage-questions.php?quiz_id=<?= $quizId ?>&trash=1" class="btn btn-outline btn-sm">
+            <a href="manage-questions.php?quiz_id=<?= $quizId ?>&trash=1" class="btn btn-outline-secondary btn-sm">
                 🗑️ Trash <?= $trashCount > 0 ? "({$trashCount})" : '' ?>
             </a>
         <?php endif; ?>
@@ -207,162 +207,171 @@ require_once __DIR__ . '/../includes/header.php';
 <?php if ($success): ?><div class="alert alert-success"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
 <?php if ($flaggedCount > 0 && !$showTrash): ?>
-<div class="alert alert-warning" style="display:flex;justify-content:space-between;align-items:center">
+<div class="alert alert-warning d-flex justify-content-between align-items-center mb-3">
     <div>
         🚩 <strong>Quality Alert:</strong> <?= $flaggedCount ?> question<?= $flaggedCount > 1 ? 's are' : ' is' ?> flagged for review based on student success rates.
     </div>
 </div>
 <?php endif; ?>
 
-<div class="two-col" style="grid-template-columns: 400px 1fr">
-    <div class="card">
-        <div class="card-title">Add a question</div>
-        <form method="POST">
-            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-            <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <h6 class="card-title fw-semibold mb-3">Add a question</h6>
+                <form method="POST">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
 
-            <div class="form-group">
-                <label>Question text</label>
-                <textarea name="question_text" rows="2" required></textarea>
+                    <div class="mb-3">
+                        <label class="form-label small fw-medium">Question text</label>
+                        <textarea class="form-control" name="question_text" rows="2" required></textarea>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-medium">Marks</label>
+                            <input type="number" class="form-control" name="marks" min="1" value="1">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-medium">Difficulty</label>
+                            <select name="difficulty" class="form-select">
+                                <option value="easy">Easy</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="hard">Hard</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-medium">Tag <span class="text-muted fw-normal">(optional, e.g. topic/chapter)</span></label>
+                        <input type="text" class="form-control" name="tag" placeholder="e.g. Algebra, Chapter 3">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small fw-medium">Options (mark the correct one)</label>
+                        <?php for ($i = 0; $i < 4; $i++): ?>
+                        <div class="input-group mb-2">
+                            <div class="input-group-text bg-white">
+                                <input class="form-check-input mt-0" type="radio" name="correct_index" value="<?= $i ?>" required>
+                            </div>
+                            <input type="text" class="form-control" name="options[]" placeholder="Option <?= $i + 1 ?>" <?= $i < 2 ? 'required' : '' ?>>
+                        </div>
+                        <?php endfor; ?>
+                        <div class="form-text small">First two options are required; last two are optional.</div>
+                    </div>
+
+                    <button type="submit" name="save_question" class="btn btn-primary w-100">
+                        Add question
+                    </button>
+                </form>
+
+                <hr class="my-4">
+                <h6 class="card-title fw-semibold mb-2 fs-6">📥 Bulk Import via CSV</h6>
+                <p class="text-muted small mb-2">
+                    Upload a CSV with columns: <code>question_text, marks, difficulty, tag, option_a, option_b, option_c, option_d, correct_index</code><br>
+                    correct_index: 0=A, 1=B, 2=C, 3=D. <a href="?quiz_id=<?= $quizId ?>&sample_csv=1" class="text-decoration-none">Download sample CSV</a>
+                </p>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                    <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
+                    <div class="mb-3">
+                        <input type="file" class="form-control form-control-sm" name="csv_file" accept=".csv" required>
+                    </div>
+                    <button type="submit" name="csv_import" class="btn btn-outline-secondary btn-sm w-100">
+                        Import from CSV
+                    </button>
+                </form>
             </div>
-
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                <div class="form-group">
-                    <label>Marks</label>
-                    <input type="number" name="marks" min="1" value="1">
-                </div>
-                <div class="form-group">
-                    <label>Difficulty</label>
-                    <select name="difficulty">
-                        <option value="easy">Easy</option>
-                        <option value="medium" selected>Medium</option>
-                        <option value="hard">Hard</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Tag <span style="color:var(--muted);font-size:12px">(optional, e.g. topic/chapter)</span></label>
-                <input type="text" name="tag" placeholder="e.g. Algebra, Chapter 3">
-            </div>
-
-            <div class="form-group">
-                <label>Options (mark the correct one)</label>
-                <?php for ($i = 0; $i < 4; $i++): ?>
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                    <input type="radio" name="correct_index" value="<?= $i ?>" required style="width:auto;flex-shrink:0">
-                    <input type="text" name="options[]" placeholder="Option <?= $i + 1 ?>" <?= $i < 2 ? 'required' : '' ?>>
-                </div>
-                <?php endfor; ?>
-                <div class="form-hint">First two options are required; last two are optional.</div>
-            </div>
-
-            <button type="submit" name="save_question" class="btn btn-primary" style="width:100%;justify-content:center">
-                Add question
-            </button>
-        </form>
-
-        <hr style="margin:20px 0;border-color:var(--border)">
-        <div class="card-title" style="font-size:13.5px">📥 Bulk Import via CSV</div>
-        <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px">
-            Upload a CSV with columns: <code>question_text, marks, difficulty, tag, option_a, option_b, option_c, option_d, correct_index</code><br>
-            correct_index: 0=A, 1=B, 2=C, 3=D. <a href="?quiz_id=<?= $quizId ?>&sample_csv=1" style="color:var(--accent)">Download sample CSV</a>
-        </p>
-        <form method="POST" enctype="multipart/form-data">
-            <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-            <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
-            <div class="form-group">
-                <label>CSV File</label>
-                <input type="file" name="csv_file" accept=".csv" required>
-            </div>
-            <button type="submit" name="csv_import" class="btn btn-outline" style="width:100%;justify-content:center">
-                Import from CSV
-            </button>
-        </form>
+        </div>
     </div>
 
-    <div class="card">
-        <div class="card-title"><?= $showTrash ? 'Deleted Questions (Trash)' : 'Existing questions' ?></div>
-        <?php if (empty($questions)): ?>
-            <p style="color:var(--muted);font-size:13.5px"><?= $showTrash ? 'Trash is empty.' : 'No questions yet — add the first one on the left.' ?></p>
-        <?php else: ?>
-            <?php foreach ($questions as $i => $q):
-                $optStmt->execute([$q['id']]);
-                $opts = $optStmt->fetchAll();
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title fw-semibold mb-3"><?= $showTrash ? 'Deleted Questions (Trash)' : 'Existing questions' ?></h6>
+                <?php if (empty($questions)): ?>
+                    <p class="text-muted small mb-0"><?= $showTrash ? 'Trash is empty.' : 'No questions yet — add the first one on the left.' ?></p>
+                <?php else: ?>
+                    <?php foreach ($questions as $i => $q):
+                        $optStmt->execute([$q['id']]);
+                        $opts = $optStmt->fetchAll();
 
-                $att = (int)($q['times_attempted'] ?? 0);
-                $cor = (int)($q['times_correct'] ?? 0);
-                $successPct = $att > 0 ? round(($cor / $att) * 100) : null;
+                        $att = (int)($q['times_attempted'] ?? 0);
+                        $cor = (int)($q['times_correct'] ?? 0);
+                        $successPct = $att > 0 ? round(($cor / $att) * 100) : null;
 
-                // Auto-detected difficulty label
-                $autoDiff = 'Uncalibrated';
-                if ($att >= 3) {
-                    if ($successPct >= 70) $autoDiff = 'Easy (Data)';
-                    elseif ($successPct >= 35) $autoDiff = 'Medium (Data)';
-                    else $autoDiff = 'Hard (Data)';
-                }
-            ?>
-            <div class="question-card" style="<?= !empty($q['is_flagged']) ? 'border:1.5px solid var(--warning,#BA7517);background:var(--warning-bg,#FAEEDA)' : '' ?>">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
-                    <div>
-                        <div class="question-number">
-                            Q<?= $i + 1 ?> · <?= $q['marks'] ?> mark<?= $q['marks'] > 1 ? 's' : '' ?>
-                            · <span class="badge badge-info"><?= ucfirst($q['difficulty']) ?></span>
-                            <?php if ($q['tag']): ?>
-                                · <span class="badge" style="background:var(--accent-light);color:var(--accent)">🏷️ <?= htmlspecialchars($q['tag']) ?></span>
-                            <?php endif; ?>
+                        // Auto-detected difficulty label
+                        $autoDiff = 'Uncalibrated';
+                        if ($att >= 3) {
+                            if ($successPct >= 70) $autoDiff = 'Easy (Data)';
+                            elseif ($successPct >= 35) $autoDiff = 'Medium (Data)';
+                            else $autoDiff = 'Hard (Data)';
+                        }
+                    ?>
+                    <div class="question-card mb-3 <?= !empty($q['is_flagged']) ? 'border-warning bg-warning bg-opacity-10' : '' ?>">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+                            <div>
+                                <div class="question-number mb-1">
+                                    Q<?= $i + 1 ?> · <?= $q['marks'] ?> mark<?= $q['marks'] > 1 ? 's' : '' ?>
+                                    · <span class="badge rounded-pill bg-info text-dark"><?= ucfirst($q['difficulty']) ?></span>
+                                    <?php if ($q['tag']): ?>
+                                        · <span class="badge rounded-pill bg-primary bg-opacity-10 text-primary">🏷️ <?= htmlspecialchars($q['tag']) ?></span>
+                                    <?php endif; ?>
+                                </div>
+
+                                <!-- Data-Driven Analytics -->
+                                <div class="small text-muted d-flex gap-2 align-items-center flex-wrap">
+                                    <?php if ($att > 0): ?>
+                                        <span>📊 <strong><?= $successPct ?>%</strong> success (<?= $cor ?>/<?= $att ?> correct)</span>
+                                        <span class="badge bg-secondary"><?= $autoDiff ?></span>
+                                    <?php else: ?>
+                                        <span>📊 0 attempts yet</span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                            <div>
+                                <?php if ($showTrash): ?>
+                                    <form method="POST" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                        <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
+                                        <button type="submit" name="restore_question" value="<?= $q['id'] ?>" class="btn btn-sm btn-primary">Restore</button>
+                                    </form>
+                                <?php else: ?>
+                                    <form method="POST" onsubmit="return confirm('Move this question to trash?');" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                        <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
+                                        <button type="submit" name="delete_question" value="<?= $q['id'] ?>" class="btn btn-sm btn-danger">Delete</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
                         </div>
 
-                        <!-- Data-Driven Analytics -->
-                        <div style="font-size:12px;color:var(--muted);margin-top:4px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                            <?php if ($att > 0): ?>
-                                <span>📊 <strong><?= $successPct ?>%</strong> success (<?= $cor ?>/<?= $att ?> correct)</span>
-                                <span class="badge" style="font-size:10.5px"><?= $autoDiff ?></span>
-                            <?php else: ?>
-                                <span>📊 0 attempts yet</span>
-                            <?php endif; ?>
+                        <!-- Auto-Flag Banner -->
+                        <?php if (!empty($q['is_flagged']) && !$showTrash): ?>
+                        <div class="alert alert-warning py-1 px-2 d-flex justify-content-between align-items-center mb-2 small">
+                            <div>🚩 <strong>Flagged:</strong> <?= htmlspecialchars($q['flag_reason']) ?></div>
+                            <form method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
+                                <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
+                                <button type="submit" name="unflag_question" value="<?= $q['id'] ?>" class="btn btn-sm btn-outline-warning text-dark py-0 px-2 small">Dismiss</button>
+                            </form>
                         </div>
-                    </div>
-
-                    <div style="display:flex;gap:6px;align-items:center">
-                        <?php if ($showTrash): ?>
-                            <form method="POST" style="display:inline">
-                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                                <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
-                                <button type="submit" name="restore_question" value="<?= $q['id'] ?>" class="btn btn-sm btn-primary">Restore</button>
-                            </form>
-                        <?php else: ?>
-                            <form method="POST" onsubmit="return confirm('Move this question to trash?');" style="display:inline">
-                                <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                                <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
-                                <button type="submit" name="delete_question" value="<?= $q['id'] ?>" class="btn btn-sm btn-danger">Delete</button>
-                            </form>
                         <?php endif; ?>
-                    </div>
-                </div>
 
-                <!-- Auto-Flag Banner -->
-                <?php if (!empty($q['is_flagged']) && !$showTrash): ?>
-                <div style="margin:10px 0;padding:8px 12px;background:rgba(186,117,23,.15);border-radius:6px;font-size:12.5px;color:var(--warning,#BA7517);display:flex;justify-content:space-between;align-items:center">
-                    <div>🚩 <strong>Flagged:</strong> <?= htmlspecialchars($q['flag_reason']) ?></div>
-                    <form method="POST" style="display:inline">
-                        <input type="hidden" name="csrf_token" value="<?= csrfToken() ?>">
-                        <input type="hidden" name="quiz_id" value="<?= $quizId ?>">
-                        <button type="submit" name="unflag_question" value="<?= $q['id'] ?>" class="btn btn-sm btn-outline" style="font-size:11px;padding:3px 8px">Dismiss Flag</button>
-                    </form>
-                </div>
+                        <div class="question-text fw-medium mb-2"><?= htmlspecialchars($q['question_text']) ?></div>
+                        <?php foreach ($opts as $o): ?>
+                            <div class="option-label <?= $o['is_correct'] ? 'correct' : '' ?> user-select-none mb-1">
+                                <?= htmlspecialchars($o['option_text']) ?>
+                                <?= $o['is_correct'] ? ' ✓' : '' ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endforeach; ?>
                 <?php endif; ?>
-
-                <div class="question-text" style="margin-top:8px"><?= htmlspecialchars($q['question_text']) ?></div>
-                <?php foreach ($opts as $o): ?>
-                    <div class="option-label <?= $o['is_correct'] ? 'correct' : '' ?>" style="cursor:default">
-                        <?= htmlspecialchars($o['option_text']) ?>
-                        <?= $o['is_correct'] ? ' ✓' : '' ?>
-                    </div>
-                <?php endforeach; ?>
             </div>
-            <?php endforeach; ?>
-        <?php endif; ?>
+        </div>
     </div>
 </div>
 
