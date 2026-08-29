@@ -15,7 +15,13 @@ if (file_exists(__DIR__ . '/../.env')) {
 // Defaults to '' (root) if APP_URL has no path component, e.g. https://example.com
 if (!defined('BASE_PATH')) {
     $appUrlPath = parse_url($_ENV['APP_URL'] ?? '', PHP_URL_PATH) ?? '';
-    define('BASE_PATH', rtrim($appUrlPath, '/'));
+    if ($appUrlPath !== '') {
+        define('BASE_PATH', rtrim($appUrlPath, '/'));
+    } else {
+        $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? ''));
+        $base = preg_replace('#/(public|admin|includes|config|cron).*$#i', '', $scriptDir);
+        define('BASE_PATH', rtrim($base, '/'));
+    }
 }
 
 require_once __DIR__ . '/migrate.php';
