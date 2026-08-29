@@ -30,6 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Name must be under 100 characters.';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) {
             $error = 'Please enter a valid email address.';
+        } elseif (isFakeEmail($email) || !isDeliverableEmail($email)) {
+            $error = 'Invalid email address. The domain does not exist, cannot receive emails, or is a temporary disposable email.';
         } elseif (strlen($password) < 8) {
             $error = 'Password must be at least 8 characters.';
         } elseif ($password !== $confirm) {
