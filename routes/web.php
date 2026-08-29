@@ -47,6 +47,8 @@ Router::get('/daily-quiz',                 'PracticeController@daily',         [
 Router::get('/weak-topics',                'PracticeController@weakTopics',    ['auth']);
 Router::get('/adaptive-quiz',              'PracticeController@adaptive',      ['auth']);
 Router::get('/ai-practice',                'PracticeController@aiPractice',    ['auth']);
+Router::post('/ai-practice',               'PracticeController@generateAi',    ['auth']);
+Router::get('/api/topics-suggest',         'PracticeController@suggestTopics', ['auth']);
 
 // ── Admin Routes (Admin Only) ────────────────────────────────
 Router::get('/admin',                      'Admin\DashboardController@index',     ['admin']);
