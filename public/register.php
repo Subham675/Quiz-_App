@@ -1,7 +1,5 @@
 <?php
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../config/db.php';
-require_once __DIR__ . '/../config/mailer.php';
+require_once __DIR__ . '/../includes/rate_limiter.php';
 
 startSession();
 if (isLoggedIn()) { header('Location: ' . BASE_PATH . '/index.php'); exit; }
@@ -10,10 +8,18 @@ $error = $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verifyCsrf();
-    $name     = strip_tags(trim($_POST['name'] ?? ''));
-    $email    = strtolower(trim($_POST['email'] ?? ''));
-    $password = (string)($_POST['password'] ?? '');
-    $confirm  = (string)($_POST['confirm'] ?? '');
+    
+    $db = getDB();
+    $rl = new RateLimiter($db);
+
+    if ($rl->isBlocked('register')) {
+        $waitSec = $rl->blockedSecondsRemaining('register');
+        $error = 'Too many registration requests from your IP. Please wait ' . ceil($waitSec / 60) . ' minute(s).';
+    } else {
+        $name     = strip_tags(trim($_POST['name'] ?? ''));
+        $email    = strtolower(trim($_POST['email'] ?? ''));
+        $password = (string)($_POST['password'] ?? '');
+        $confirm  = (string)($_POST['confirm'] ?? '');
 
     if (!$name || !$email || !$password) {
         $error = 'All fields are required.';
@@ -73,14 +79,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (sendOTPEmail($email, $name, $otp)) {
                 $_SESSION['pending_user_id'] = $userId;
+                $rl->reset('register');
                 header('Location: verify-otp.php');
                 exit;
             } else {
                 $db->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
+                $rl->recordFailure('register', 5, 10, 15);
                 $error = 'Could not send verification email. Please try again.';
             }
         }
         render:
+            if (!empty($error)) {
+                $rl->recordFailure('register', 5, 10, 15);
+            }
     }
 }
 ?>

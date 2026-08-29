@@ -1,6 +1,5 @@
 <?php
-require_once __DIR__ . '/../includes/auth.php';
-require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../includes/rate_limiter.php';
 
 startSession();
 if (isLoggedIn()) { header('Location: ' . BASE_PATH . '/index.php'); exit; }
@@ -9,8 +8,13 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verifyCsrf();
-    if (!checkRateLimit('login', 5, 60)) {
-        $error = 'Too many failed login attempts. Please wait 1 minute before trying again.';
+    
+    $db = getDB();
+    $rl = new RateLimiter($db);
+
+    if ($rl->isBlocked('login')) {
+        $waitSec = $rl->blockedSecondsRemaining('login');
+        $error = 'Too many failed login attempts. Your IP has been temporarily blocked. Please wait ' . ceil($waitSec / 60) . ' minute(s).';
     } else {
         $email    = strtolower(trim($_POST['email'] ?? ''));
         $password = (string)($_POST['password'] ?? '');
@@ -20,7 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'Invalid email address format.';
         } else {
-            $db   = getDB();
             // Secure parameterized query - 100% immune to SQL injection
             $stmt = $db->prepare("
                 SELECT id, name, email, password, role, is_verified, is_banned, is_deleted 
@@ -37,11 +40,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } elseif (!empty($user['is_banned'])) { 
                     $error = 'Your account has been suspended. Please contact support.'; 
                 } else { 
+                    // Clear failed login attempts for this IP on success
+                    $rl->reset('login');
                     loginUser($user); 
                     header('Location: ' . BASE_PATH . '/index.php'); 
                     exit; 
                 }
             } else {
+                // Record failed login attempt (blocks after 5 attempts for 15 minutes)
+                $rl->recordFailure('login', 5, 10, 15);
                 $error = 'Invalid email or password.';
             }
         }
