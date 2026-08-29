@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../config/db.php';
+require_once __DIR__ . '/../config/mailer.php';
 require_once __DIR__ . '/../includes/rate_limiter.php';
 
 startSession();
@@ -21,77 +24,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $password = (string)($_POST['password'] ?? '');
         $confirm  = (string)($_POST['confirm'] ?? '');
 
-    if (!$name || !$email || !$password) {
-        $error = 'All fields are required.';
-    } elseif (strlen($name) > 100) {
-        $error = 'Name must be under 100 characters.';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) {
-        $error = 'Please enter a valid email address.';
-    } elseif (strlen($password) < 8) {
-        $error = 'Password must be at least 8 characters.';
-    } elseif ($password !== $confirm) {
-        $error = 'Passwords do not match.';
-    } else {
-        $db  = getDB();
-        $chk = $db->prepare("SELECT id FROM users WHERE email = ?");
-        $chk->execute([$email]);
-        if ($chk->fetch()) {
-            $error = 'This email is already registered.';
+        if (!$name || !$email || !$password) {
+            $error = 'All fields are required.';
+        } elseif (strlen($name) > 100) {
+            $error = 'Name must be under 100 characters.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 150) {
+            $error = 'Please enter a valid email address.';
+        } elseif (strlen($password) < 8) {
+            $error = 'Password must be at least 8 characters.';
+        } elseif ($password !== $confirm) {
+            $error = 'Passwords do not match.';
         } else {
-            $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-            $otp  = generateOTP();
-            try {
-                $db->beginTransaction();
-
-                // Find lowest available ID (fills gap left by deleted users)
-                // e.g. users 1,3,4 exist → next gets ID 2 (not 5)
-                $nextId = (int)$db->query("
-                    SELECT MIN(seq) FROM (
-                        SELECT 1 AS seq
-                        UNION ALL
-                        SELECT id + 1 FROM users
-                    ) AS candidates
-                    WHERE seq NOT IN (SELECT id FROM users)
-                ")->fetchColumn();
-
-                $stmt = $db->prepare("INSERT INTO users (id, name, email, password) VALUES (?, ?, ?, ?)");
-                $stmt->execute([$nextId, $name, $email, $hash]);
-                $userId = $nextId;
-
-                saveOTP($userId, $otp);
-                $db->commit();
-            } catch (Exception $e) {
-                $db->rollBack();
-                error_log('Registration error: ' . $e->getMessage());
-                $error = 'Registration failed. Please try again.';
-                goto render;
-            }
-            $smtpUser = $_ENV['MAIL_USER'] ?? $_ENV['SMTP_USER'] ?? '';
-            $smtpPass = $_ENV['MAIL_PASS'] ?? $_ENV['SMTP_PASS'] ?? '';
-
-            if (empty($smtpUser) || empty($smtpPass)) {
-                // No SMTP configured — auto-verify the user instantly
-                $db->prepare("UPDATE users SET is_verified = 1 WHERE id = ?")->execute([$userId]);
-                $_SESSION['reg_success'] = 'Account created and verified! You can now log in.';
-                header('Location: login.php');
-                exit;
-            }
-
-            if (sendOTPEmail($email, $name, $otp)) {
-                $_SESSION['pending_user_id'] = $userId;
-                $rl->reset('register');
-                header('Location: verify-otp.php');
-                exit;
+            $chk = $db->prepare("SELECT id FROM users WHERE email = ?");
+            $chk->execute([$email]);
+            if ($chk->fetch()) {
+                $error = 'This email is already registered.';
             } else {
-                $db->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
-                $rl->recordFailure('register', 5, 10, 15);
-                $error = 'Could not send verification email. Please try again.';
+                $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+                $otp  = generateOTP();
+                try {
+                    $db->beginTransaction();
+
+                    // Find lowest available ID (fills gap left by deleted users)
+                    $nextId = (int)$db->query("
+                        SELECT MIN(seq) FROM (
+                            SELECT 1 AS seq
+                            UNION ALL
+                            SELECT id + 1 FROM users
+                        ) AS candidates
+                        WHERE seq NOT IN (SELECT id FROM users)
+                    ")->fetchColumn();
+
+                    $stmt = $db->prepare("INSERT INTO users (id, name, email, password) VALUES (?, ?, ?, ?)");
+                    $stmt->execute([$nextId, $name, $email, $hash]);
+                    $userId = $nextId;
+
+                    saveOTP($userId, $otp);
+                    $db->commit();
+                } catch (Exception $e) {
+                    $db->rollBack();
+                    error_log('Registration error: ' . $e->getMessage());
+                    $error = 'Registration failed. Please try again.';
+                    goto render;
+                }
+
+                $smtpUser = $_ENV['MAIL_USER'] ?? $_ENV['SMTP_USER'] ?? '';
+                $smtpPass = $_ENV['MAIL_PASS'] ?? $_ENV['SMTP_PASS'] ?? '';
+
+                if (empty($smtpUser) || empty($smtpPass)) {
+                    // No SMTP configured — auto-verify the user instantly
+                    $db->prepare("UPDATE users SET is_verified = 1 WHERE id = ?")->execute([$userId]);
+                    $_SESSION['reg_success'] = 'Account created and verified! You can now log in.';
+                    header('Location: login.php');
+                    exit;
+                }
+
+                if (sendOTPEmail($email, $name, $otp)) {
+                    $_SESSION['pending_user_id'] = $userId;
+                    $rl->reset('register');
+                    header('Location: verify-otp.php');
+                    exit;
+                } else {
+                    $db->prepare("DELETE FROM users WHERE id = ?")->execute([$userId]);
+                    $rl->recordFailure('register', 5, 10, 15);
+                    $error = 'Could not send verification email. Please try again.';
+                }
             }
         }
         render:
-            if (!empty($error)) {
-                $rl->recordFailure('register', 5, 10, 15);
-            }
+        if (!empty($error)) {
+            $rl->recordFailure('register', 5, 10, 15);
+        }
     }
 }
 ?>
