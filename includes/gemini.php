@@ -4,17 +4,23 @@
  * Requires GEMINI_API_KEY in .env (free tier: https://aistudio.google.com/apikey)
  */
 
-define('GEMINI_MODEL', 'gemini-2.5-flash-lite');
-define('GEMINI_ENDPOINT', 'https://generativelanguage.googleapis.com/v1beta/models/' . GEMINI_MODEL . ':generateContent');
+// Standard Google Gemini models in priority order for robust fallback
+const GEMINI_MODELS = [
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-1.5-flash-8b'
+];
 
 /**
- * Low-level call to Gemini. Returns the raw text response or throws on failure.
+ * Low-level call to Gemini with automatic model fallback. Returns raw text response or throws on failure.
  */
-function callGemini(string $prompt, bool $jsonMode = true, int $maxTokens = 2048): string
+function callGemini(string $prompt, bool $jsonMode = true, int $maxTokens = 4096): string
 {
-    $apiKey = $_ENV['GEMINI_API_KEY'] ?? '';
-    if (empty($apiKey) || $apiKey === 'paste_your_key_here') {
-        throw new Exception('Gemini API key is not set in .env (GEMINI_API_KEY).');
+    $apiKey = trim($_ENV['GEMINI_API_KEY'] ?? '');
+    if (empty($apiKey) || $apiKey === 'paste_your_key_here' || $apiKey === 'your_gemini_api_key_here') {
+        throw new Exception('Gemini API key is not configured in .env file.');
     }
 
     $body = [
@@ -22,7 +28,7 @@ function callGemini(string $prompt, bool $jsonMode = true, int $maxTokens = 2048
             ['parts' => [['text' => $prompt]]]
         ],
         'generationConfig' => [
-            'temperature'     => 0.6,
+            'temperature'     => 0.5,
             'maxOutputTokens' => $maxTokens,
         ],
     ];
@@ -31,57 +37,63 @@ function callGemini(string $prompt, bool $jsonMode = true, int $maxTokens = 2048
         $body['generationConfig']['responseMimeType'] = 'application/json';
     }
 
-    // Transient errors (model overloaded / rate-limited / momentary server fault)
-    // are common on the free tier and usually clear up within a second or two,
-    // so retry a couple of times before giving up. Anything else (bad request,
-    // invalid key, model not found) won't be fixed by retrying.
-    $maxAttempts   = 3;
-    $retryableCodes = [429, 500, 503];
-    $lastError     = null;
+    $modelsToTry = GEMINI_MODELS;
+    $lastError   = null;
 
-    for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-        $ch = curl_init(GEMINI_ENDPOINT . '?key=' . urlencode($apiKey));
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_POST           => true,
-            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-            CURLOPT_POSTFIELDS     => json_encode($body),
-            CURLOPT_TIMEOUT        => 25,
-            CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_TCP_NODELAY    => true,
-            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_2TLS,
-            CURLOPT_ENCODING       => '', // accept gzip/deflate — smaller payload, faster transfer
-        ]);
+    foreach ($modelsToTry as $modelName) {
+        $endpoint = "https://generativelanguage.googleapis.com/v1beta/models/{$modelName}:generateContent";
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr  = curl_error($ch);
-        curl_close($ch);
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            $ch = curl_init($endpoint . '?key=' . urlencode($apiKey));
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_POST           => true,
+                CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+                CURLOPT_POSTFIELDS     => json_encode($body),
+                CURLOPT_TIMEOUT        => 45,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TCP_NODELAY    => true,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_ENCODING       => '',
+            ]);
 
-        if ($curlErr) {
-            $lastError = new Exception('Network error calling Gemini: ' . $curlErr);
-        } elseif ($httpCode !== 200) {
-            $data = json_decode($response, true);
-            $msg  = $data['error']['message'] ?? 'Unknown error';
-            $lastError = new Exception("Gemini API error ({$httpCode}): {$msg}");
-            if (!in_array($httpCode, $retryableCodes, true)) {
-                throw $lastError; // not worth retrying, fail fast
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr  = curl_error($ch);
+            curl_close($ch);
+
+            if ($curlErr) {
+                $lastError = new Exception('Network error calling Gemini: ' . $curlErr);
+                break; // try next model or retry
             }
-        } else {
-            $data = json_decode($response, true);
-            $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
-            if ($text === null) {
-                throw new Exception('Gemini returned no content. It may have blocked the response.');
-            }
-            return $text;
-        }
 
-        if ($attempt < $maxAttempts) {
-            usleep(500000 * $attempt); // 0.5s, then 1s backoff before retrying
+            if ($httpCode === 200) {
+                $data = json_decode($response, true);
+                $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? null;
+                if ($text !== null && trim($text) !== '') {
+                    return $text;
+                }
+                $lastError = new Exception('Gemini returned empty content.');
+            } else {
+                $data = json_decode($response, true);
+                $msg  = $data['error']['message'] ?? 'HTTP ' . $httpCode;
+                $lastError = new Exception("Gemini API error ({$httpCode} with {$modelName}): {$msg}");
+                
+                // If 404 (model not found/available), break to try next model immediately
+                if ($httpCode === 404) {
+                    break;
+                }
+                // If rate limited or transient error, retry briefly
+                if (in_array($httpCode, [429, 500, 503], true) && $attempt < 2) {
+                    usleep(600000);
+                } else {
+                    break; // try next fallback model
+                }
+            }
         }
     }
 
-    throw $lastError;
+    throw $lastError ?? new Exception('Failed to communicate with Gemini API.');
 }
 
 /**
@@ -90,46 +102,138 @@ function callGemini(string $prompt, bool $jsonMode = true, int $maxTokens = 2048
  */
 function generateQuizQuestions(string $topic, int $count, string $difficulty): array
 {
-    $count = max(1, min($count, 20)); // safety cap
+    $count = max(1, min($count, 50)); // Allow up to 50 questions
 
     $prompt = <<<PROMPT
-Generate exactly {$count} multiple-choice quiz questions about "{$topic}" at {$difficulty} difficulty.
-Each question: exactly 4 options, exactly 1 correct. Be concise. No explanations, no markdown.
-JSON array only, this exact shape:
-[{"question":"...","options":["A","B","C","D"],"correct_index":0}]
+You are an expert educational quiz creator. Generate exactly {$count} multiple-choice questions on the topic "{$topic}" at "{$difficulty}" difficulty.
+Return ONLY a valid raw JSON array of objects with no markdown backticks and no introductory text.
+
+JSON Schema format:
+[
+  {
+    "question": "Question text here?",
+    "options": [
+      {"text": "Option 1", "is_correct": true},
+      {"text": "Option 2", "is_correct": false},
+      {"text": "Option 3", "is_correct": false},
+      {"text": "Option 4", "is_correct": false}
+    ],
+    "marks": 1
+  }
+]
 PROMPT;
 
-    $maxTokens = min(4096, 150 * $count + 200);
+    $maxTokens = min(8192, max(2048, 300 * $count + 500));
     $raw = callGemini($prompt, true, $maxTokens);
-    $parsed = json_decode($raw, true);
 
+    // Strip markdown formatting fences if present
+    $cleanJson = trim($raw);
+    $cleanJson = preg_replace('/^```(?:json)?\s*/i', '', $cleanJson);
+    $cleanJson = preg_replace('/\s*```$/i', '', $cleanJson);
+    $cleanJson = trim($cleanJson);
+
+    $parsed = json_decode($cleanJson, true);
+
+    // If direct decode failed, try regex extracting bracketed JSON
     if (!is_array($parsed)) {
-        throw new Exception('Gemini returned invalid JSON for questions.');
+        if (preg_match('/\[\s*\{.*\}\s*\]/s', $cleanJson, $matches)) {
+            $parsed = json_decode($matches[0], true);
+        }
+    }
+
+    // If response was wrapped in an object like {"questions": [...]}
+    if (is_array($parsed) && isset($parsed['questions']) && is_array($parsed['questions'])) {
+        $parsed = $parsed['questions'];
+    }
+
+    if (!is_array($parsed) || empty($parsed)) {
+        throw new Exception('Gemini returned invalid JSON for questions. Please try again.');
     }
 
     $questions = [];
     foreach ($parsed as $item) {
-        if (empty($item['question']) || empty($item['options']) || count($item['options']) < 2) {
+        if (empty($item['question']) || empty($item['options']) || !is_array($item['options'])) {
             continue;
         }
-        $correctIndex = (int)($item['correct_index'] ?? 0);
+
         $options = [];
-        foreach ($item['options'] as $i => $optText) {
-            $options[] = ['text' => trim($optText), 'correct' => $i === $correctIndex];
+        // Handle options whether array of strings or array of objects
+        if (isset($item['options'][0]) && is_string($item['options'][0])) {
+            $correctIdx = (int)($item['correct_index'] ?? 0);
+            foreach ($item['options'] as $i => $optText) {
+                $options[] = ['text' => trim((string)$optText), 'correct' => ($i === $correctIdx)];
+            }
+        } else {
+            foreach ($item['options'] as $opt) {
+                if (is_array($opt) && isset($opt['text'])) {
+                    $isCorr = !empty($opt['is_correct']) || !empty($opt['correct']);
+                    $options[] = ['text' => trim((string)$opt['text']), 'correct' => $isCorr];
+                }
+            }
         }
-        $questions[] = [
-            'question' => trim($item['question']),
-            'marks'    => 1,
-            'options'  => $options,
-        ];
+
+        // Ensure at least one option is marked correct
+        $hasCorrect = false;
+        foreach ($options as $opt) {
+            if ($opt['correct']) {
+                $hasCorrect = true;
+                break;
+            }
+        }
+        if (!$hasCorrect && !empty($options)) {
+            $options[0]['correct'] = true;
+        }
+
+        if (count($options) >= 2) {
+            $questions[] = [
+                'question' => trim((string)$item['question']),
+                'marks'    => (int)($item['marks'] ?? 1),
+                'options'  => $options,
+            ];
+        }
     }
 
     if (empty($questions)) {
-        throw new Exception('Gemini returned no usable questions. Try a different topic or fewer questions.');
+        throw new Exception('Could not parse valid questions from the AI output. Please try again.');
     }
 
     return $questions;
 }
+
+/**
+ * Generate related learning concepts / subtopics for a searched topic using Gemini.
+ * Returns array of strings: ['Concept 1', 'Concept 2', ...]
+ */
+function generateRelatedConcepts(string $topic, string $quizContext = ''): array
+{
+    $prompt = "For the search topic '{$topic}'" . ($quizContext ? " in the subject/quiz context of '{$quizContext}'" : "") . ", generate 6 to 8 concise, specific key learning concepts or sub-topics for multiple choice quiz questions.
+Return ONLY a valid raw JSON array of strings, like [\"Concept A\", \"Concept B\", \"Concept C\"]. No markdown backticks, no explanations.";
+
+    try {
+        $raw = callGemini($prompt, true, 600);
+        $raw = preg_replace('/^```(?:json)?\s*|\s*```$/i', '', trim($raw));
+        $parsed = json_decode($raw, true);
+
+        if (is_array($parsed)) {
+            $cleaned = [];
+            foreach ($parsed as $item) {
+                if (is_string($item) && trim($item) !== '') {
+                    $cleaned[] = trim($item);
+                } elseif (is_array($item) && isset($item['concept'])) {
+                    $cleaned[] = trim($item['concept']);
+                }
+            }
+            if (!empty($cleaned)) {
+                return array_slice($cleaned, 0, 8);
+            }
+        }
+    } catch (\Exception $e) {
+        error_log('Concept suggestion error: ' . $e->getMessage());
+    }
+
+    return [];
+}
+
 
 /**
  * Evaluate a student's free-text/descriptive answer against a model answer using AI.

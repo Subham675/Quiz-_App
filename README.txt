@@ -274,6 +274,13 @@
   * certificates       - Generated certificates for passing scores
   * rate_limits        - Rate limiting records for security
 
+  Default Admin Credentials (Seeded):
+  -----------------------------------
+  * Email / Username : admin@quizapp.com
+  * Password         : Admin@1234
+  * Role             : Admin
+  (Important: Change this password after initial login!)
+
   Auto-Migration:
   ---------------
   The app automatically checks and adds missing columns on startup

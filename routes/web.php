@@ -79,3 +79,5 @@ Router::get('/admin/reports/attempt/{id}', 'Admin\ReportController@attempt',    
 
 Router::get('/admin/ai-generator',         'Admin\AiGeneratorController@index',   ['admin']);
 Router::post('/admin/ai-generator',        'Admin\AiGeneratorController@generate',['admin']);
+Router::get('/api/concept-suggestions',    'Admin\AiGeneratorController@suggestConcepts', ['admin']);
+

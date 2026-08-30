@@ -46,35 +46,44 @@ class Quiz extends Model
 
     public static function create(array $data): int
     {
+        $timeLimitSeconds = isset($data['time_limit_seconds']) 
+            ? (int)$data['time_limit_seconds'] 
+            : (int)($data['time_limit_minutes'] ?? 10) * 60;
+
         self::query("
-            INSERT INTO quizzes (title, description, category_id, time_limit_minutes, negative_marking, starts_at, ends_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO quizzes (title, description, category_id, time_limit_seconds, negative_marking, starts_at, ends_at, is_ai_generated)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ", [
             $data['title'],
             $data['description'] ?? null,
-            $data['category_id'] ?: null,
-            $data['time_limit_minutes'] ?? 10,
+            !empty($data['category_id']) ? (int)$data['category_id'] : null,
+            $timeLimitSeconds > 0 ? $timeLimitSeconds : 600,
             $data['negative_marking'] ?? 0.00,
-            $data['starts_at'] ?: null,
-            $data['ends_at'] ?: null,
+            $data['starts_at'] ?? null,
+            $data['ends_at'] ?? null,
+            !empty($data['is_ai_generated']) ? 1 : 0,
         ]);
         return self::lastInsertId();
     }
 
     public static function update(int $id, array $data): void
     {
+        $timeLimitSeconds = isset($data['time_limit_seconds']) 
+            ? (int)$data['time_limit_seconds'] 
+            : (int)($data['time_limit_minutes'] ?? 10) * 60;
+
         self::query("
             UPDATE quizzes
-            SET title = ?, description = ?, category_id = ?, time_limit_minutes = ?, negative_marking = ?, starts_at = ?, ends_at = ?
+            SET title = ?, description = ?, category_id = ?, time_limit_seconds = ?, negative_marking = ?, starts_at = ?, ends_at = ?
             WHERE id = ?
         ", [
             $data['title'],
             $data['description'] ?? null,
-            $data['category_id'] ?: null,
-            $data['time_limit_minutes'] ?? 10,
+            !empty($data['category_id']) ? (int)$data['category_id'] : null,
+            $timeLimitSeconds > 0 ? $timeLimitSeconds : 600,
             $data['negative_marking'] ?? 0.00,
-            $data['starts_at'] ?: null,
-            $data['ends_at'] ?: null,
+            $data['starts_at'] ?? null,
+            $data['ends_at'] ?? null,
             $id
         ]);
     }
@@ -82,5 +91,23 @@ class Quiz extends Model
     public static function softDelete(int $id): void
     {
         self::query("UPDATE quizzes SET deleted_at = NOW() WHERE id = ?", [$id]);
+    }
+
+    public static function findByTitle(string $title): ?array
+    {
+        return self::fetchOne("
+            SELECT * FROM quizzes
+            WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) AND deleted_at IS NULL
+            LIMIT 1
+        ", [$title]);
+    }
+
+    public static function recalculateTotalMarks(int $quizId): void
+    {
+        self::query("
+            UPDATE quizzes
+            SET total_marks = (SELECT COALESCE(SUM(marks), 0) FROM questions WHERE quiz_id = ? AND deleted_at IS NULL)
+            WHERE id = ?
+        ", [$quizId, $quizId]);
     }
 }
