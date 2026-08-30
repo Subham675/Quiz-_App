@@ -36,14 +36,14 @@ function isAdmin(): bool {
 
 function requireLogin(): void {
     if (!isLoggedIn()) {
-        header('Location: ' . BASE_PATH . '/public/login.php');
+        header('Location: ' . BASE_PATH . '/login');
         exit;
     }
 }
 
 function requireAdmin(): void {
     if (!isAdmin()) {
-        header('Location: ' . BASE_PATH . '/public/dashboard.php');
+        header('Location: ' . BASE_PATH . '/dashboard');
         exit;
     }
 }
